@@ -224,3 +224,105 @@ label{font-size:13px;color:var(--muted)}
 @media (prefers-reduced-motion: reduce){
   *,*::before,*::after{animation:none!important;transition:none!important}
 }
+
+/* ===== 4판: 손맛 ===== */
+.fx{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:20}
+#app.shake{animation:shake .38s ease}
+@keyframes shake{0%,100%{transform:none}20%{transform:translate(-6px,2px) rotate(-.4deg)}40%{transform:translate(5px,-2px) rotate(.4deg)}60%{transform:translate(-4px,1px)}80%{transform:translate(3px,0)}}
+
+/* 수치가 움직인다 */
+.stat{position:relative}
+.gauge i{transition:width .6s cubic-bezier(.2,.9,.3,1)}
+.pop{position:absolute;right:0;top:-17px;font-style:normal;font-weight:600;font-size:13px;padding:0 6px;border-radius:999px;background:var(--card);border:1.5px solid currentColor;pointer-events:none;animation:popup 1.5s ease both;z-index:2}
+.pop.up{color:var(--good)}
+.pop.dn{color:var(--stamp)}
+@keyframes popup{0%{transform:translateY(8px) scale(.6);opacity:0}15%{transform:translateY(-4px) scale(1.15);opacity:1}30%{transform:translateY(-8px) scale(1)}80%{opacity:1}100%{transform:translateY(-22px);opacity:0}}
+.bizcard .age span{display:inline-block}
+.bizcard .age .tick{animation:tick .45s cubic-bezier(.2,1.4,.4,1) both}
+@keyframes tick{from{transform:translateY(60%) scale(.8);opacity:0}to{transform:none;opacity:1}}
+
+/* 건물이 자란다 */
+.tower .drop{transform-box:fill-box;animation:drop .5s cubic-bezier(.3,1.5,.5,1) both}
+@keyframes drop{from{transform:translateY(-46px);opacity:0}to{transform:none;opacity:1}}
+.tower .flag,.hero-sky .wave{transform-box:fill-box;transform-origin:left center;animation:wave 2.4s ease-in-out infinite}
+@keyframes wave{0%,100%{transform:skewY(0)}50%{transform:skewY(-9deg) scaleX(.94)}}
+.tower:not([aria-pressed]){cursor:default}
+button.tower{transition:transform .15s ease}
+button.tower:hover{transform:translateY(-3px)}
+.hero-sky .blink{animation:blink 6.3s steps(1) infinite}
+@keyframes blink{0%,62%{opacity:1}63%,78%{opacity:.15}79%,100%{opacity:1}}
+
+/* 포스트잇 */
+.post{transition:transform .14s ease,box-shadow .14s ease}
+.post:hover:not(:disabled){transform:translateY(-4px) rotate(0deg);box-shadow:0 2px 0 rgba(22,33,59,.08),0 18px 22px -14px rgba(22,33,59,.6)}
+.post:active:not(:disabled){transform:translateY(1px) scale(.96)}
+.slot.filled{animation:none}
+.slot.filled.new{animation:stick .32s cubic-bezier(.2,1.6,.4,1) both}
+@keyframes stick{from{transform:translateY(-26px) rotate(-9deg) scale(1.25);opacity:0}to{transform:rotate(var(--r,0deg));opacity:1}}
+.slot.filled:hover{filter:brightness(1.06);transform:rotate(var(--r,0deg)) translateY(-2px)}
+.btn{transition:transform .1s ease}
+.btn:active:not(:disabled){transform:translateY(2px) scale(.985)}
+.btn.go.ready{animation:nudge 1.8s ease-in-out infinite}
+@keyframes nudge{0%,100%{box-shadow:0 0 0 0 color-mix(in oklab,var(--hl) 80%,transparent)}50%{box-shadow:0 0 0 7px color-mix(in oklab,var(--hl) 0%,transparent)}}
+.foot{display:flex;justify-content:space-between;gap:12px}
+
+/* 결산 */
+.stamp.still{animation:none}
+.mini-stamp.go{animation:slam2 .3s cubic-bezier(.2,1.5,.4,1) both}
+@keyframes slam2{from{transform:rotate(-8deg) scale(2.4);opacity:0}to{transform:rotate(-8deg) scale(1);opacity:1}}
+.streak{display:inline-block;font-family:var(--f-body);font-size:12px;font-weight:600;background:var(--hl);color:var(--body-on-hl);padding:1px 7px;border-radius:999px;vertical-align:middle}
+
+/* 사건 */
+.choice{position:relative;padding-left:40px;animation:slidein .3s ease both;transition:transform .12s ease}
+.choice:hover:not(:disabled){transform:translateX(4px)}
+.choice:active:not(:disabled){transform:scale(.985)}
+.choice .key{position:absolute;left:10px;top:11px;width:21px;height:21px;border:1.5px solid var(--ink);border-radius:50%;font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center}
+.roll{display:flex;flex-direction:column;gap:6px}
+.roll-bar{position:relative;height:18px;background:color-mix(in oklab,var(--stamp) 16%,var(--card));border:1.5px solid var(--ink)}
+.roll-bar .zone{position:absolute;inset:0 auto 0 0;background:color-mix(in oklab,var(--good) 38%,var(--card));border-right:1.5px solid var(--ink)}
+.roll-bar .needle{position:absolute;top:-6px;bottom:-6px;left:var(--to);width:4px;margin-left:-2px;background:var(--ink)}
+.roll.play .needle{animation:spin .9s cubic-bezier(.3,.1,.2,1) both}
+@keyframes spin{0%{left:0}28%{left:100%}52%{left:8%}74%{left:calc(var(--to) + 12%)}88%{left:calc(var(--to) - 4%)}100%{left:var(--to)}}
+.roll .verdict{font-family:var(--f-disp);font-weight:400;font-size:17px;margin-left:6px}
+.roll.ok .verdict{color:var(--good)}
+.roll.no .verdict{color:var(--stamp)}
+.roll.play .verdict{animation:fade .2s .9s both}
+.late{animation:slidein .35s .95s both}
+.chips.float.late{animation:none}
+.chips.float.late .chip{animation-delay:1.05s}
+.chips.float.late .chip:nth-child(2){animation-delay:1.11s}
+.chips.float.late .chip:nth-child(3){animation-delay:1.17s}
+.chips.float.late .chip:nth-child(4){animation-delay:1.23s}
+
+/* 공문 종류 */
+.order.goal{border-top:8px solid var(--pc)}
+.order.collapse,.order.closed,.order.miss{border-top:8px solid var(--stamp)}
+
+/* 버킷리스트 */
+.goals{background:color-mix(in oklab,var(--hl) 30%,var(--card));padding:10px 12px 12px;box-shadow:var(--lift);transform:rotate(-.5deg);display:flex;flex-direction:column;gap:3px;color:var(--ink)}
+.goals-h{font-family:var(--f-disp);font-size:16px}
+.goal{display:grid;grid-template-columns:18px 1fr auto;gap:6px;align-items:center;font-size:13.5px}
+.goal i{width:13px;height:13px;border:1.5px solid currentColor;display:block}
+.goal.done i{background:var(--stamp);border-color:var(--stamp)}
+.goal.done span{text-decoration:line-through;opacity:.65}
+.goal em{font-style:normal;font-size:12px;color:var(--stamp);font-weight:600}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .goals{background:color-mix(in oklab,var(--hl) 16%,var(--card))}}
+:root[data-theme="dark"] .goals{background:color-mix(in oklab,var(--hl) 16%,var(--card))}
+
+/* 수집첩 */
+.side-col{display:flex;flex-direction:column;gap:16px;min-width:0}
+.stampgrid{display:grid;grid-template-columns:auto repeat(6,1fr);gap:6px 4px;align-items:center;font-size:12px}
+.sg-h{text-align:center;color:var(--muted)}
+.sg-j{color:var(--muted);padding-right:4px;white-space:nowrap}
+.sg-c{aspect-ratio:1;max-width:42px;width:100%;justify-self:center;border:1.5px dashed var(--rule);border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--f-disp);font-size:11px}
+.sg-c.on{border:2.5px solid var(--pc);color:var(--pc);transform:rotate(-10deg)}
+.meter{display:grid;grid-template-columns:86px 46px 1fr;gap:8px;align-items:center;font-size:13px}
+.meter i{height:6px;background:var(--ghost);display:block;position:relative}
+.meter i b{position:absolute;inset:0 auto 0 0;background:var(--ink)}
+.find{animation:slidein .4s ease both}
+.finds{border-top:6px solid var(--hl)}
+
+/* 엔딩 그래프가 그려진다 */
+.chart .draw{stroke-dasharray:1;stroke-dashoffset:1;animation:draw 1.6s .2s ease forwards}
+@keyframes draw{to{stroke-dashoffset:0}}
+.ending-hero h1{animation:slidein .5s ease both}

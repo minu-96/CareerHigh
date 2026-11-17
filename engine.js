@@ -35,7 +35,7 @@ function resumeAdd(s,text){ s.resume.push({age:s.age,text:text}); }
 function cardIssue(s){ const c={age:s.age,title:titleOf(s),org:orgOf(s)}; const l=s.cards[s.cards.length-1]; if(!l||l.title!==c.title||l.org!==c.org) s.cards.push(c); }
 
 function newRun(seed,name){
-  const s={v:2,seed:seed|0,name:"",age:17,origin:"",edu:"",traits:[],perks:[],job:"",track:"school",stage:0,pp:0,
+  const s={v:3,goals:[],goalsDone:{},streak:0,seed:seed|0,name:"",age:17,origin:"",edu:"",traits:[],perks:[],job:"",track:"school",stage:0,pp:0,
     stats:{skill:10,rep:10,net:10,fame:0,life:50,burn:0,money:0},assets:0,salary:0,company:"",companyMult:1,boss:"",rival:null,nickname:"",
     flags:{},timers:{childcare:0,care:0,loan:0},kids:[],mp:0,prog:0,lifeYears:0,burnYears:0,
     counters:{work:0,study:0,network:0,rest:0,fame:0,family:0,invest:0,total:0,jobChanges:0,yearsAtStage:0,maxStay:0,rejections:0,founded:0,tenure:0},
@@ -60,6 +60,7 @@ function newRun(seed,name){
   s.eraWait=ri(s,3,6);
   if(s.track==="school"){ if(s.edu==="univ"||s.edu==="college") resumeAdd(s,EDU[s.edu]+" 입학"); else resumeAdd(s,EDU[s.edu]+" 재학"); }
   else resumeAdd(s,EDU[s.edu]+" 졸업");
+  { const pool=GOALS.map(g=>g.id); for(let i=0;i<3;i++){ const g=pick(s,pool); pool.splice(pool.indexOf(g),1); s.goals.push(g); } }
   clampStats(s); cardIssue(s);
   return s;
 }
@@ -205,8 +206,9 @@ function choose(s,idx){
   if(ch.perkId){ s.perks.push(ch.perkId); s.perkOffer=null; }
   applyFx(s,ch.effects);
   let branch=null;
-  if(ch.check) branch=s.stats[ch.check.stat]>=ch.check.min?ch.success:ch.fail;
-  else if(ch.chance!=null) branch=rnd(s)*100<choiceChance(s,ch)?ch.success:ch.fail;
+  let roll=null;
+  if(ch.check){ const ok=s.stats[ch.check.stat]>=ch.check.min; roll={check:true,stat:ch.check.stat,min:ch.check.min,have:s.stats[ch.check.stat],ok:ok}; branch=ok?ch.success:ch.fail; }
+  else if(ch.chance!=null){ const p=choiceChance(s,ch), r=rnd(s)*100; roll={p:p,r:Math.round(r),ok:r<p}; branch=r<p?ch.success:ch.fail; }
   if(branch){ applyFx(s,branch.effects); text=branch.result; shame=branch.shame||null; }
   if(s.pendingText){ text=s.pendingText; s.pendingText=null; }
   clampStats(s);
@@ -214,7 +216,7 @@ function choose(s,idx){
   const after=snap(s), delta={}; for(const k in before) if(after[k]!==before[k]) delta[k]=after[k]-before[k];
   logAdd(s,fill(s,card.title)+": "+fill(s,ch.text)+". "+text,false);
   if(shame) logAdd(s,fill(s,shame),true);
-  s.result={title:fill(s,card.title),text:text,delta:delta,shame:shame?fill(s,shame):null};
+  s.result={title:fill(s,card.title),text:text,delta:delta,shame:shame?fill(s,shame):null,roll:roll,pick:fill(s,ch.text)};
   s.phase="result";
 }
 function applyFx(s,fx){
@@ -461,6 +463,8 @@ function yearEnd(s){
   const before=Object.assign({},s.best);
   checkPeaks(s);
   for(const p in s.best) if(s.best[p]>before[p]&&p!=="org"&&p!=="biz") push(PATHS[p]+"의 길: "+rankName(s,p,s.best[p])+(s.best[p]>=5?" — 정점":""));
+  if(sum.grade){ s.streak=(sum.grade==="S"||sum.grade==="A")?(s.streak||0)+1:0; sum.streak=s.streak; }
+  checkGoals(s);
   s.hist.push({age:s.age,life:st.life,burn:st.burn,nw:networth(s)});
   s.summary=sum; s.yearDone=true;
   if(s.ffLog) s.ffLog.push(sum);
@@ -534,3 +538,28 @@ function fastForward(s,max){
   const log=s.ffLog; s.ffLog=null; return log;
 }
 function previewFx(ch){ const fx=ch.effects||{}, o={}; for(const k of ["skill","rep","net","fame","life","burn","money","assets","pp"]) if(fx[k]) o[k]=fx[k]; return o; }
+
+function goalTest(s,id){
+  const st=s.stats;
+  switch(id){
+    case "house35": return !!s.flags.house&&s.age<35;
+    case "marry": return !!s.flags.married;
+    case "kid2": return s.kids.length>=2;
+    case "nw10": return networth(s)>=100000;
+    case "mp1": return s.mp>=1;
+    case "stage4": return s.track==="career"&&s.stage>=4;
+    case "found": return !!s.flags.founder;
+    case "book": return !!s.flags.hit;
+    case "fame40": return st.fame>=40;
+    case "noburn": return s.age>=50&&!s.flags.burnout_once;
+    case "life10": return s.lifeYears>=10;
+    case "skill80": return st.skill>=80;
+    case "pet": return !!s.flags.pet;
+    case "free": return s.track==="free";
+    case "rich30": return s.age<30&&networth(s)>=10000;
+  }
+  return false;
+}
+function checkGoals(s){
+  for(const id of s.goals){ if(s.goalsDone[id]==null&&goalTest(s,id)){ s.goalsDone[id]=s.age; const g=GOALS.find(x=>x.id===id); logAdd(s,"버킷리스트 달성: "+g.t); mark(s,"life",g.t); flash(s,"goal",g.t,"버킷리스트 "+Object.keys(s.goalsDone).length+"/3. 이건 이력서에 안 써도 내가 안다."); } }
+}
