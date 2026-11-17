@@ -56,6 +56,7 @@ function newRun(seed,name){
   s.traits=[pick(s,TRAITS_GOOD).id,pick(s,TRAITS_BAD).id];
   const ids=Object.keys(JOBS);
   s.job=rnd(s)<0.1?pick(s,ids):wpick(s,ids,k=>JOBS[k].eduW[s.edu]);
+  if(JOBS[s.job].needUniv){ if(s.age>=20&&s.edu!=="univ") s.job=pick(s,ids.filter(k=>!JOBS[k].needUniv)); else if(s.edu==="univ") s.gradAge=26; }
   for(const k in o.fx) s.stats[k]+=o.fx[k];
   s.eraWait=ri(s,3,6);
   if(s.track==="school"){ if(s.edu==="univ"||s.edu==="college") resumeAdd(s,EDU[s.edu]+" 입학"); else resumeAdd(s,EDU[s.edu]+" 재학"); }
@@ -262,15 +263,16 @@ function found(s,startStage,free,label){
   if(s.rival&&s.rival.status==="same") s.rival.status="other";
   resumeAdd(s,s.company+" 창업"); cardIssue(s); mark(s,"biz",s.company+" 창업"); flash(s,"found",s.company,"대표 "+s.name+". 오늘부터 월급을 주는 쪽이다.");
 }
+function dropDream(s){ if(!JOBS[s.job].needUniv) return; const old=JOBS[s.job].name; s.job=pick(s,Object.keys(JOBS).filter(k=>!JOBS[k].needUniv)); s.pendingText=old+"의 꿈은 접었다. "+JOBS[s.job].name+" 쪽으로 간다."; logAdd(s,old+" 지망을 접었다",true); }
 function doAct(s,a){
   const j=job(s), unit=RULES.profitUnit[Math.max(1,s.stage)];
-  if(a==="go_univ"){ s.edu="univ"; s.gradAge=s.age+5; resumeAdd(s,"4년제 대학 합격"); }
-  else if(a==="go_college"){ s.edu="college"; s.gradAge=s.age+3; resumeAdd(s,"전문대 합격"); }
-  else if(a==="go_work") s.queue.unshift("job_apply");
+  if(a==="go_univ"){ s.edu="univ"; s.gradAge=s.age+(j.needUniv?7:5); resumeAdd(s,j.needUniv?"의과대학 합격":"4년제 대학 합격"); }
+  else if(a==="go_college"){ dropDream(s); s.edu="college"; s.gradAge=s.age+3; resumeAdd(s,"전문대 합격"); }
+  else if(a==="go_work"){ dropDream(s); s.queue.unshift("job_apply"); }
   else if(a==="join_big") join(s,"big");
   else if(a==="join_small") join(s,"small");
   else if(a==="apply_fail"){ if(s.track==="school") resumeAdd(s,EDU[s.edu]+" 졸업"); s.track="rest"; s.counters.rejections++; cardIssue(s); }
-  else if(a==="switch_job"){ const others=Object.keys(JOBS).filter(k=>k!==s.job); s.job=pick(s,others); if(s.everJoined){ s.careerStage=Math.max(1,s.careerStage-1); s.stats.skill*=0.6; } join(s,"small"); s.pendingText="계획에 없던 길이다. "+JOBS[s.job].name+" 분야에서 다시 시작한다."; }
+  else if(a==="switch_job"){ const others=Object.keys(JOBS).filter(k=>k!==s.job&&!JOBS[k].needUniv); s.job=pick(s,others); if(s.everJoined){ s.careerStage=Math.max(1,s.careerStage-1); s.stats.skill*=0.6; } join(s,"small"); s.pendingText="계획에 없던 길이다. "+JOBS[s.job].name+" 분야에서 다시 시작한다."; }
   else if(a==="close_biz"){ resumeAdd(s,s.company+" 정리"); mark(s,"bad",s.company+" 정리"); if(s.stats.money<0) s.stats.money=Math.round(s.stats.money*0.5); s.track="rest"; s.stage=0; s.careerStage=Math.max(1,s.prevCareerStage||1); cardIssue(s); }
   else if(a==="poached"){ s.counters.jobChanges++; let c=pick(s,j.big); if(c===s.company) c=pick(s,j.big); s.company=c; s.companyMult=1.2; s.stage=Math.min(5,s.stage+1); s.pp=0; s.salary=Math.max(Math.round(s.salary*1.3),Math.round(RULES.salary[s.stage]*j.rate*1.2)); makeBoss(s); s.counters.yearsAtStage=0; s.counters.tenure=0; resumeAdd(s,c+" 이직 ("+j.titles[s.stage]+")"); cardIssue(s); mark(s,"job",c+" 스카우트"); }
   else if(a==="go_free"){ if(s.track==="school") resumeAdd(s,EDU[s.edu]+" 졸업"); leaveWork(s); s.track="free"; s.stage=0; s.company=""; if(s.rival&&s.rival.status==="same") s.rival.status="other"; resumeAdd(s,j.free+"로 독립"); cardIssue(s); mark(s,"job","프리랜서 독립"); }
@@ -311,7 +313,7 @@ function promoNeed(s){ return RULES.promo[s.stage]; }
 function promoMin(s){ if(s.track==="founder") return RULES.bizNeed[s.stage]||{}; const p=promoNeed(s); return p?p.min:{}; }
 function promoLack(s){ const m=promoMin(s), l=[]; for(const k in m) if(s.stats[k]<m[k]) l.push(STAT[k]+" "+m[k]); if(s.track==="founder"&&s.stage<6&&s.stats.money<RULES.profitUnit[s.stage]*0.5) l.push("현금 "+won(RULES.profitUnit[s.stage]*0.5)); return l; }
 function promoReady(s){ const p=promoNeed(s); if(!p||s.pp<p.pp) return false; return promoLack(s).length===0; }
-function eraMult(s){ if(!s.era) return 1; const m=ERAS.find(e=>e.id===s.era).perf[s.job]; return m<1&&perk(s,"crisis")?1:m; }
+function eraMult(s){ if(!s.era) return 1; const er=ERAS.find(e=>e.id===s.era); let m=er.perf[s.job]; if(m==null) m=er.def==null?1:er.def; return m<1&&perk(s,"crisis")?1:m; }
 function won(n){ const a=Math.abs(Math.round(n)), sign=n<0?"-":""; if(a>=10000){ const e=Math.floor(a/10000), m=a%10000; return sign+e.toLocaleString("ko-KR")+"억"+(m?" "+m.toLocaleString("ko-KR")+"만":"")+" 원"; } return sign+a.toLocaleString("ko-KR")+"만 원"; }
 function ranksNow(s){
   const r={org:0,craft:0,biz:0,fame:0,wealth:0,life:0}, nw=networth(s);

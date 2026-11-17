@@ -441,8 +441,8 @@ const CARDS=[
  {id:"off_whistle",when:{job:"office",track:"career",stage:[3,5]},once:true,w:8,title:"숫자가 맞지 않는다",text:"결산 자료를 보다가 알았다. 누군가 3년째 숫자를 만지고 있다.",choices:[
    {text:"감사실에 알린다",chance:45,chanceStat:"rep",success:{effects:{rep:12,fame:8,pp:3},result:"임원 둘이 나갔다. 내 이름은 기사에 '내부 관계자'로 실렸다."},fail:{effects:{rep:6,fame:6,do:"fired"},result:"석 달 뒤 내 자리가 없어졌다. 사유는 '조직 효율화'였다.",shame:"내부 고발 뒤 회사에서 밀려났다"}},
    {text:"못 본 척한다",effects:{pp:2,flag:"dirty",life:-5},result:"파일을 닫았다. 닫히지 않는 것도 있었다."}]},
- {id:"off_probe",when:{flag:"dirty",noflag:"probed"},once:true,w:14,title:"압수수색",text:"아침 9시, 정장 입은 사람들이 상자를 들고 들어왔다.",choices:[
-   {text:"아는 대로 말한다",effects:{rep:-10,pp:-4,flag:"probed"},result:"참고인 조사는 여덟 시간 걸렸다.",shame:"회계 부정을 알고도 덮었던 게 드러났다"},
+ {id:"off_probe",when:{flag:"dirty",noflag:"probed"},once:true,w:14,title:"조사가 나왔다",text:"아침 9시, 정장 입은 사람들이 상자를 들고 들어왔다. 덮어 둔 그 일 때문이다.",choices:[
+   {text:"아는 대로 말한다",effects:{rep:-10,pp:-4,flag:"probed"},result:"참고인 조사는 여덟 시간 걸렸다.",shame:"덮어 둔 일이 조사에서 드러났다"},
    {text:"모른다고 한다",chance:40,effects:{flag:"probed"},success:{effects:{},result:"내 이름은 조서에 없었다."},fail:{effects:{rep:-25,do:"fired"},result:"메일 기록이 남아 있었다.",shame:"조사에서 거짓말하다 해고됐다"}}]},
 
  /* ---- 추가 카드 ---- */
