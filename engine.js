@@ -32,7 +32,7 @@ function mark(s,k,t){ s.marks.push({age:s.age,k:k,t:t}); }
 function flash(s,kind,title,sub){ s.flashes.push({kind:kind,title:title,sub:sub||""}); }
 function logAdd(s,text,shame){ s.log.push({age:s.age,text:text,shame:!!shame}); }
 function resumeAdd(s,text){ s.resume.push({age:s.age,text:text}); }
-function cardIssue(s){ const c={age:s.age,title:titleOf(s),org:orgOf(s)}; const l=s.cards[s.cards.length-1]; if(!l||l.title!==c.title||l.org!==c.org) s.cards.push(c); }
+function cardIssue(s){ const c={age:s.age,title:titleOf(s),org:orgOf(s),job:s.job,track:s.track,stage:s.stage,co:s.company,tier:s.track==="career"?(s.companyMult>=1.2?"big":"small"):s.track==="founder"?"own":"",edu:s.edu}; const l=s.cards[s.cards.length-1]; if(!l||l.title!==c.title||l.org!==c.org) s.cards.push(c); }
 
 function newRun(seed,name){
   const s={v:3,goals:[],goalsDone:{},streak:0,seed:seed|0,name:"",age:17,origin:"",edu:"",traits:[],perks:[],job:"",track:"school",stage:0,pp:0,

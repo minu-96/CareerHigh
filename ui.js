@@ -20,7 +20,7 @@ const later=(fn,ms)=>{ timers.push(setTimeout(fn,ms)); };
 const clearTimers=()=>{ timers.forEach(clearTimeout); timers=[]; };
 
 /* ---------- 수집첩 ---------- */
-const M=(function(){ const m=store.get("careerhigh.meta")||{}; for(const k of ["stamps","endings","nicks","cards","origins","goals"]) m[k]=m[k]||{}; m.runs=m.runs||0; if(m.rerolls==null) m.rerolls=1; m.mute=!!m.mute; return m; })();
+const M=(function(){ const m=store.get("careerhigh.meta")||{}; for(const k of ["stamps","endings","nicks","cards","origins","goals","bcards"]) m[k]=m[k]||{}; m.runs=m.runs||0; if(m.rerolls==null) m.rerolls=1; m.mute=!!m.mute; return m; })();
 const saveMeta=()=>store.set("careerhigh.meta",M);
 const CARD_TOTAL=CARDS.filter(c=>!c.required).length;
 function archive(){
@@ -32,6 +32,7 @@ function archive(){
   if(S.nickname){ const nk=S.nickname.indexOf("만년 ")===0?"만년 ○○":S.nickname; if(!M.nicks[nk]){ M.nicks[nk]=1; finds.push("새 별명: "+S.nickname); } }
   if(!M.origins[S.origin]){ M.origins[S.origin]=1; finds.push("새 출신: "+origin(S).name); }
   for(const id in S.goalsDone) if(!M.goals[id]){ M.goals[id]=1; finds.push("버킷리스트: "+GOALS.find(g=>g.id===id).t); }
+  const nc=(S.cardFinds||[]).length; if(nc) finds.push("새 명함 "+nc+"장 (명함 도감 "+Object.keys(M.bcards).length+"/"+CARD_DESIGNS+")");
   M.runs++; M.rerolls=Math.min(3,M.rerolls+1); f.finds=finds; saveMeta();
   const h=store.get("careerhigh.history")||[];
   let bp="org",bv=-1; for(const p in S.best) if(S.best[p]>bv){ bv=S.best[p]; bp=p; }
@@ -165,7 +166,7 @@ function shareText(){
 }
 
 /* ============ 5판 화면 구조 ============ */
-let recTab="status", slipClosed=false, colOpen=false, slipMini=false;
+let recTab="status", slipClosed=false, colOpen=false, slipMini=false, cardOpen=null, cardFlipped=false, lastCardKey="", guideStep=null;
 const SKY=[[0,"#26345f","#f2a27a"],[.1,"#5f8fd6","#ffd2a8"],[.3,"#4b8be4","#c4e3ff"],[.5,"#3a7ddf","#acd6ff"],[.7,"#5584cc","#f5d59c"],[.86,"#45437f","#f28a5c"],[.95,"#1d2350","#9a5a7a"],[1,"#0f1533","#4a3a6a"]];
 const mix=(a,b,k)=>{ const p=h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16)); const x=p(a),y=p(b); return "#"+x.map((v,i)=>Math.round(v+(y[i]-v)*k).toString(16).padStart(2,"0")).join(""); };
 function skyAt(t){ for(let i=1;i<SKY.length;i++){ const a=SKY[i-1],b=SKY[i]; if(t<=b[0]){ const k=(t-a[0])/(b[0]-a[0]); return [mix(a[1],b[1],k),mix(a[2],b[2],k)]; } } return [SKY[SKY.length-1][1],SKY[SKY.length-1][2]]; }
@@ -218,13 +219,14 @@ function hud(s){
   const tick=shownAge!=null&&shownAge!==s.age;
   const done=Object.keys(s.goalsDone||{}).length;
   return `<header class="hud" style="--track:${trackColor(s)}">
-    <div class="who"><b>${esc(s.name)}</b><span>${esc(titleOf(s))}, ${esc(orgOf(s))}</span>${s.nickname?`<span class="nick">${esc(s.nickname)}</span>`:""}</div>
+    <div class="who-wrap"><button class="hud-card ${cardFlip?"flip":""}" data-act="card" data-i="cur" aria-label="지금 명함 크게 보기">${cardHtml(cardInfoOf(s),{w:window.innerWidth<520?78:96})}</button><div class="who"><b>${esc(s.name)}</b><span>${esc(cardTitleOf(s))}${s.track==="career"||s.track==="founder"?", "+esc(s.company):""}</span>${s.nickname?`<span class="nick">${esc(s.nickname)}</span>`:""}</div></div>
     <div class="clock"><div class="age num"><span class="${tick?"tick":""}">${s.age}</span><small>세</small></div>${hudRuler(s)}</div>
-    <div class="hud-btns"><button class="hbtn" data-act="rec" data-tab="status">기록<span class="badge">${done}/3</span></button><button class="hbtn" data-act="mute" aria-label="${M.mute?"소리 켜기":"소리 끄기"}">${M.mute?"소리 끔":"소리 켬"}</button></div>
+    <div class="hud-btns"><button class="hbtn" data-act="rec" data-tab="status">기록</button><button class="hbtn" data-act="mute" aria-label="${M.mute?"소리 켜기":"소리 끄기"}">${M.mute?"소리 끔":"소리 켬"}</button></div>
   </header>`;
 }
 function statbar(s){
-  const g=(k,cls,extra)=>{ const hot=k==="burn"&&s.stats.burn>=70; return `<div class="st ${hot?"hot":""}" data-stat="${k}"><div class="row"><span>${STAT[k]}</span><b class="num">${s.stats[k]}</b></div><div class="gauge ${cls||""}"><i style="width:${s.stats[k]}%"></i>${extra||""}</div></div>`; };
+  const TIP={skill:"일을 잘하는 정도. 승진, 대표작, 판정에 쓰인다",rep:"업계와 회사의 평가. 평가 점수와 스카우트에 쓰인다",net:"아는 사람. 높은 직급과 회사 성장에 필요하다",fame:"세상이 아는 정도. 명성의 길과 강연, 출간",life:"일 밖의 삶. 높으면 피로가 잘 풀린다",burn:"쌓인 피로. 70부터 칸이 줄고 100이면 쓰러진다"};
+  const g=(k,cls,extra)=>{ const hot=k==="burn"&&s.stats.burn>=70; return `<div class="st ${hot?"hot":""}" data-stat="${k}" title="${TIP[k]}"><div class="row"><span>${STAT[k]}</span><b class="num">${s.stats[k]}</b></div><div class="gauge ${cls||""}"><i style="width:${s.stats[k]}%"></i>${extra||""}</div></div>`; };
   const cap=skillCap(s);
   return `<div class="statbar">${g("skill","",cap<100?`<u style="left:${cap}%" title="능력 한계 ${cap}"></u>`:"")}${g("rep")}${g("net")}${g("fame")}${g("life")}${g("burn","burn"+(s.stats.burn>=70?" hot":""))}
     <div class="st money"><div class="row" data-stat="money" style="position:relative"><span>현금</span><b class="num">${won(s.stats.money)}</b></div><div class="row" data-stat="nw" style="position:relative"><span>순자산</span><b class="num">${won(networth(s))}</b></div></div></div>`;
@@ -268,7 +270,7 @@ function tags(s){
   if(!t.length&&!perks.length) return "";
   return `<div class="tags">${t.map(x=>`<span class="tag">${esc(x)}</span>`).join("")}${perks.map(p=>`<span class="tag perk" title="${esc(p.desc)}">${esc(p.name)}</span>`).join("")}</div>`;
 }
-function rail(s){ return `<aside class="rail">${towerDetail(s)}${goalsBlock(s)}${tags(s)}</aside>`; }
+function rail(s){ return `<aside class="rail"><button data-act="card" data-i="cur" aria-label="지금 명함 크게 보기">${cardHtml(cardInfoOf(s),{w:298,cls:cardFlip?"reveal":""})}</button>${towerDetail(s)}${goalsBlock(s)}${tags(s)}</aside>`; }
 const QUARTER=["1분기","2분기","3분기","4분기","야근"];
 function desk(s){
   const acts=actionsOf(s), left=s.slots-draft.length, notes=slotNotes(s), rot=["-1.5deg","1deg","-.5deg","1.6deg","-1deg"];
@@ -280,13 +282,13 @@ function desk(s){
   else if(notes.length) warn="칸이 줄었다: "+notes.join(", ");
   const canResign=(s.track==="career"||s.track==="free"||s.track==="founder")&&s.stage<6&&!s.onLeave;
   return `<section class="desk">
-    <div class="desk-head"><h2 class="disp">${s.age}세의 한 해</h2><span class="aside">${s.onLeave?"쉬는 해":"행동력 "+s.slots+"칸"}</span></div>
+    <div class="desk-head"><h2 class="disp">${s.age}세의 한 해</h2><span class="aside">${s.onLeave?"쉬는 해":"행동력 "+s.slots+"칸"} <button class="bucket-chip" data-act="rec" data-tab="status">버킷리스트 ${Object.keys(s.goalsDone||{}).length}/3</button></span></div>
     ${warn?`<p class="warnline">${esc(warn)}</p>`:""}
     ${s.onLeave?`<p class="small">올해는 쉰다. 아무것도 하지 않아도 된다.</p>`:`
     <div class="slots">${Array.from({length:s.slots},(_,i)=>{ const k=draft[i]; if(!k) return `<div class="slot"><em>${QUARTER.at(Math.min(i,4))}</em>비어 있음</div>`; const a=acts.find(x=>x[0]===k);
       return `<button class="slot filled ${i===draft.length-1&&draft.justAdded?"new":""}" data-act="unslot" data-i="${i}" style="--pc:${PCOLOR[ACT_COLOR[k]]};--r:${rot.at(i)}" aria-label="${QUARTER.at(Math.min(i,4))} ${a?a[1]:k} 빼기"><em>${QUARTER.at(Math.min(i,4))}</em>${a?a[1]:k}</button>`; }).join("")}</div>
     <div class="handrow">${acts.map(a=>{ const n=draft.filter(x=>x===a[0]).length, cant=left<=0||(a[0]==="invest"&&s.stats.money<500);
-      let sub=a[2]; if(a[0]==="craft") sub="진행 "+Math.min(s.prog,4)+"/4, 다 차면 도전";
+      let sub=a[2]; if(a[0]==="craft") sub="진행 "+Math.min(s.prog,4)+"/4, 다 차면 도전"; if(a[0]==="invest"&&s.stats.money<500) sub="현금 500만 원 이상 필요";
       return `<button class="pc" data-act="add" data-k="${a[0]}" style="--pc:${PCOLOR[ACT_COLOR[a[0]]]}" title="${esc(a[2])}" ${cant?"disabled":""}>${n?`<span class="cnt">${n}</span>`:""}<b>${a[1]}</b><small>${esc(sub)}</small></button>`; }).join("")}</div>`}
     <div class="desk-btns">
       <button class="gbtn ${left<=0||s.onLeave?"ready":""}" data-act="commit" ${left>0&&!s.onLeave?"disabled":""}>${s.onLeave?"한 해 쉬기":left>0?left+"칸 더 채우기":"한 해 보내기"}</button>
@@ -302,6 +304,7 @@ function vEventModal(){
   const card=cardById(S.current), cat=catOf(card);
   return `<div class="modal" role="dialog" aria-modal="true" aria-label="${esc(fill(S,card.title))}"><div class="mcard" style="--pc:${cat[1]}"><span class="cat">${esc(cat[0])}</span><span class="age-tag">${S.age}세</span>
     <h2 class="disp">${esc(fill(S,card.title))}</h2><p class="body">${esc(fill(S,card.text))}</p>
+    <p class="mstats">${["skill","rep","net","fame","life","burn"].map(k=>`<span>${STAT[k]} <b>${S.stats[k]}</b></span>`).join("")}<span>현금 <b>${won(S.stats.money)}</b></span></p>
     ${visibleChoices(S,card).map((x,n)=>{ const ch=x.c, lk=locked(S,ch), p=choiceChance(S,ch);
       let hint=ch.hint?fill(S,ch.hint):""; if(ch.check) hint=(hint?hint+", ":"")+STAT[ch.check.stat]+" "+ch.check.min+" 이상이면 성공 (지금 "+S.stats[ch.check.stat]+")";
       if(lk) hint="조건 부족: "+Object.keys(ch.require).map(k=>STAT[k]+" "+ch.require[k]).join(", ");
@@ -329,13 +332,35 @@ function vOverlay(f){
   const o=ORDER[f.kind]||["알림","확인","확인"];
   const peakPath=f.kind==="peak"?(S.peaks.find(p=>p.name===f.title)||{}).path:null;
   let body="";
-  if(f.kind==="promo") body=`<table class="formtbl"><tr><th>성명</th><td>${esc(S.name)}</td></tr><tr><th>새 직함</th><td><b>${esc(f.title)}</b></td></tr><tr><th>소속</th><td>${esc(f.sub)}</td></tr><tr><th>나이</th><td>${S.age}세</td></tr></table><p class="small muted">위와 같이 발령함.</p>`;
+  const own=S.track==="founder";
+  if(f.kind==="promo"||f.kind==="found"||(f.kind==="peak"&&(peakPath==="org"||peakPath==="biz"))) body=`<p class="sub">${f.kind==="promo"?(own?`${esc(S.company)}이(가) 한 단계 컸다. 새 명함을 찍었다.`:`${esc(S.name)} 님을 <b>${esc(cardTitleOf(S))}</b>(으)로 발령함. ${esc(f.sub)}, ${S.age}세.`):esc(f.sub)}</p><div class="card-stage">${cardHtml(cardInfoOf(S),{w:Math.min(330,window.innerWidth-80),cls:"reveal shine"})}</div>`;
   else body=`<p class="sub">${esc(f.sub)}</p>`;
   return `<div class="modal center" role="dialog" aria-modal="true" aria-label="${esc(o[0])}"><div class="order ${f.kind}" style="--pc:${peakPath?PCOLOR[peakPath]:f.kind==="goal"?PCOLOR.life:"var(--ink)"}">
-    <div class="bigstamp">${esc(o[1])}</div>${f.kind==="promo"?"":`<span class="kind">${esc(o[0])}</span>`}
-    <h2 class="disp">${esc(f.kind==="promo"?"인사발령":f.title)}</h2>${body}
-    ${f.kind==="peak"?`<div class="mini-city-wrap">${city({age:S.age,ranks:ranksNow(S),peaks:S.peakAt,mini:true}).replace('class="city"','class="mini-city"')}</div>`:""}
+    <div class="bigstamp">${esc(f.kind==="promo"&&S.track==="founder"?"성장":o[1])}</div>${f.kind==="promo"?"":`<span class="kind">${esc(o[0])}</span>`}
+    <h2 class="disp">${esc(f.kind==="promo"?(own?"회사가 컸다":"인사발령"):f.kind==="found"?"사업자등록":f.title)}</h2>${body}
+    ${f.kind==="peak"&&!(peakPath==="org"||peakPath==="biz")?`<div class="mini-city-wrap">${city({age:S.age,ranks:ranksNow(S),peaks:S.peakAt,mini:true}).replace('class="city"','class="mini-city"')}</div>`:""}
     <button class="gbtn" data-act="dismiss">${esc(o[2])}</button></div></div>`;
+}
+
+/* ---------- 명함 크게 보기, 첫 안내 ---------- */
+function vCardModal(){
+  const c=cardOpen==="cur"?cardInfoOf(S):Object.assign({name:S.name},S.cards[cardOpen]||{});
+  const w=Math.min(400,window.innerWidth-48);
+  return `<div class="modal center" role="dialog" aria-modal="true" aria-label="명함"><div class="order" style="width:min(460px,100%)"><span class="kind">${c.age}세의 명함</span>
+    <div class="card-stage"><button data-act="card-flip" aria-label="명함 뒤집기">${cardHtml(c,{w:w,back:true,flipped:cardFlipped})}</button><p class="card-cap">명함을 누르면 뒤집힌다.</p></div>
+    <div class="btn-row"><button class="gbtn alt" data-act="card-flip">뒤집기</button><button class="gbtn" data-act="card-close">닫기</button></div></div></div>`;
+}
+const GUIDE=[
+  ["한 해는 네 칸","책상 위 행동 카드를 눌러 1분기부터 4분기까지 채운다. 업무만 하면 쓰러지고, 쉬기만 하면 뒤처진다. 같은 계획을 이어 가려면 '사건까지 반복'을 누른다."],
+  ["꼭대기는 여섯 곳","도시의 건물 여섯 동이 회사, 장인, 창업, 명성, 자산, 삶의 길이다. 층이 오를 때마다 불이 켜지고, 5층에 닿으면 깃발이 선다. 건물을 누르면 다음 조건이 보인다."],
+  ["명함이 이력이다","승진하거나 회사를 옮기면 새 명함이 나온다. 회사마다, 직급마다 디자인이 다르다. 모은 명함은 수집첩의 명함 도감에 남는다."]
+];
+function vGuide(){
+  const g=GUIDE[guideStep], last=guideStep===GUIDE.length-1;
+  return `<div class="modal center" role="dialog" aria-modal="true" aria-label="안내"><div class="order" style="--pc:var(--hl)"><span class="kind">처음 하는 인생 ${guideStep+1}/${GUIDE.length}</span><h2 class="disp">${g[0]}</h2><p class="sub">${g[1]}</p>
+    ${guideStep===2?`<div class="guide-art">${cardHtml(cardInfoOf(S),{w:260})}</div>`:""}
+    <div class="guide-dots">${GUIDE.map((_,i)=>`<i class="${i===guideStep?"on":""}"></i>`).join("")}</div>
+    <div class="btn-row"><button class="gbtn alt" data-act="guide-skip">건너뛰기</button><button class="gbtn" data-act="guide-next">${last?"시작한다":"다음"}</button></div></div></div>`;
 }
 
 /* ---------- 기록 패널 ---------- */
@@ -354,7 +379,7 @@ function vRec(){
     <p class="small muted">진행은 자동으로 저장된다.</p>`;
   else if(recTab==="resume") body=`<div class="sheet"><div class="sheet-head"><h2 class="disp">이력서</h2></div><p class="small muted">공식 이력만 적는다. 빈 칸의 사연은 업무 수첩에 있다.</p><table class="formtbl">${resumeRows(S)}</table></div>`;
   else if(recTab==="log") body=vLogBody();
-  else body=`<div class="mini-cards">${S.cards.map(c=>`<div class="mini-card" style="--pc:${trackColor(S)}"><span class="muted">${esc(c.org)}</span><b>${esc(S.name)}</b><span>${esc(c.title)}</span><span class="muted">${c.age}세</span></div>`).join("")}</div>`;
+  else body=`<p class="small muted">이번 인생에서 받은 명함 ${S.cards.length}장. 누르면 크게 보고 뒤집을 수 있다.</p><div class="card-grid">${S.cards.map((c,i)=>`<div class="card-cell"><button data-act="card" data-i="${i}" aria-label="${c.age}세 명함 크게 보기">${cardHtml(Object.assign({name:S.name},c),{w:170})}</button><span>${c.age}세, ${esc(c.title)}</span></div>`).join("")}</div>`;
   return `<div class="panel-back" data-act="close-rec"></div><div class="panel" role="dialog" aria-modal="true" aria-label="기록"><div class="panel-head"><h2 class="disp">${esc(S.name)}의 기록</h2><button class="hbtn" data-act="close-rec">닫기</button></div>
     <div class="tabs" role="tablist">${tabs.map(t=>`<button class="tab" role="tab" aria-selected="${recTab===t[0]}" data-act="rec" data-tab="${t[0]}">${t[1]}</button>`).join("")}</div>
     <div class="panel-body">${body}</div></div>`;
@@ -369,6 +394,10 @@ function vCollection(){
       ${jobs.map(jb=>`<span class="sg-j">${JOBS[jb].name.split("·")[0].split(" ")[0]}</span>`+paths.map(p=>{ const a=M.stamps[jb+"|"+p]; return `<span class="sg-c ${a?"on":""}" style="--pc:${PCOLOR[p]}" title="${JOBS[jb].name}, ${PATHS[p]}${a?", "+a+"세에 달성":""}">${a?"정점":""}</span>`; }).join("")).join("")}</div>
     ${bar("정점 도장",got,jobs.length*paths.length)}${bar("엔딩",Object.keys(M.endings).length,ENDINGS.length)}${bar("별명",Object.keys(M.nicks).length,NICKS.length)}${bar("사건 카드",Math.min(CARD_TOTAL,Object.keys(M.cards).length),CARD_TOTAL)}${bar("출신",Object.keys(M.origins).length,ORIGINS.length)}${bar("버킷리스트",Object.keys(M.goals).length,GOALS.length)}
     <p class="small"><span class="hl">${esc(nextHint())}</span></p></div>
+    <div class="sheet"><div class="sheet-head"><h2 class="disp">명함 도감</h2><span class="aside">${Object.keys(M.bcards).length}/${CARD_DESIGNS}</span></div>
+      <p class="small muted">회사마다, 직급마다 명함이 다르다. 칸 하나가 직급 하나다.</p>
+      <div class="dex">${cardGroups().map((g,gi,arr)=>{ const head=(gi===0||(arr[gi-1].job!==g.job)||g.own&&!arr[gi-1].own||g.free||g.misc)&&!(g.own&&arr[gi-1].own)?`<p class="dex-h">${g.own?"내 회사":g.free?"회사 밖":g.misc?"그 밖":JOBS[g.job].name}</p>`:""; const col=g.brand?g.brand.c:"var(--ink)";
+        return head+`<div class="dex-row" style="--pc:${col}">${g.brand?markSvg(g.brand.mark,col,"#fff"):markSvg("mono",col,"#fff",g.label.charAt(0))}<span>${esc(g.label)}</span><span class="dex-dots">${g.keys.map(k=>`<i class="${M.bcards[k]?"on":""}"></i>`).join("")}</span></div>`; }).join("")}</div></div>
     ${hist.length?`<div class="sheet"><div class="sheet-head"><h2 class="disp">지난 인생들</h2><span class="aside">${hist.length}명</span></div><div class="mini-cards">${hist.map(x=>`<div class="mini-card" style="--pc:${PCOLOR[x.path]||"var(--ink)"}"><span class="muted">${esc(x.job)}, ${x.age}세</span><b>${esc(x.name)}</b><span>${esc(x.end)}</span>${x.nick?`<span class="muted">${esc(x.nick)}</span>`:""}</div>`).join("")}</div></div>`:""}
   </div></div>`;
 }
@@ -385,7 +414,7 @@ function vTitle(){
       <input type="text" id="nm" maxlength="8" value="${esc(nameDraft)}" autocomplete="off">
       <button class="gbtn" data-act="new">새 인생 시작</button>
       ${run&&run.v===3&&!run.final?`<button class="gbtn alt" data-act="resume-run">이어하기: ${esc(run.name)}, ${run.age}세</button>`:""}
-      <div class="title-row"><button class="gbtn alt" data-act="col">수집첩 ${Object.keys(M.stamps).length}/18</button><button class="gbtn alt" data-act="mute">${M.mute?"소리 켜기":"소리 끄기"}</button></div>
+      <div class="title-row"><button class="gbtn alt" data-act="col">수집첩</button><button class="gbtn alt" data-act="mute">${M.mute?"소리 켜기":"소리 끄기"}</button></div>
       <p class="small muted" style="text-align:center">다시 뽑기권 ${M.rerolls}장</p>
     </div></div></div>`;
 }
@@ -412,6 +441,7 @@ function vEnding(){
     <div class="end-body">
       <p class="hand" style="text-align:center">${esc(f.scene)}</p>
       <p class="verdict-line"><span class="hl"><b>${esc(f.verdict)}</b></span></p>
+      <div class="card-stage"><button data-act="card" data-i="cur" aria-label="마지막 명함 크게 보기">${cardHtml(cardInfoOf(S),{w:Math.min(360,window.innerWidth-40),cls:"reveal shine"})}</button><p class="card-cap">마지막 명함. 받은 명함은 모두 ${S.cards.length}장.</p></div>
       <section class="sheet finds"><div class="sheet-head"><h2 class="disp">이번 인생이 남긴 것</h2><span class="aside">수집첩에 ${finds.length}개 추가</span></div>
         ${finds.length?`<ul class="lines">${finds.map((x,i)=>`<li class="find" style="animation-delay:${300+i*140}ms">${esc(x)}</li>`).join("")}</ul>`:`<p class="small muted">새로 모은 것은 없다. 다른 길을 걸어 보면 생긴다.</p>`}
         <p class="small"><span class="hl">${esc(nextHint())}</span></p>
@@ -451,6 +481,8 @@ function render(){
       else if(S.phase==="result") h+=vResultModal();
     }
   }
+  if(cardOpen!=null&&S) h+=vCardModal();
+  if(guideStep!=null&&S&&view==="game") h+=vGuide();
   app.innerHTML=h;
   fitScenes();
   animateStats();
@@ -459,6 +491,7 @@ function render(){
   if(fk&&fk!==lastFlash) fxFor(fl);
   lastFlash=fk;
   if(S&&S.phase!=="draw"&&S.phase!=="ending"&&view==="game"){ prevRanks=Object.assign({},ranksNow(S)); shownAge=S.age; }
+  if(!(S&&S.flashes&&S.flashes.length)) cardFlip=false;
   if(S&&view==="game"&&S.phase==="result") lastResult=S.result;
   if(S&&view==="game"&&S.phase==="alloc") lastSlip=recent.length?recent[recent.length-1]:null;
   if(!slipMini&&app.querySelector(".toast")) later(()=>{ slipMini=true; const t=app.querySelector(".toast"); if(t){ t.classList.add("mini"); t.dataset.act="slip-open"; } },3200);
@@ -475,9 +508,16 @@ function afterStep(){
   if(S.summary&&S.summary!==seenSummary){ recent=[S.summary]; seenSummary=S.summary; slipClosed=false; slipMini=false; if(S.summary.grade&&S.phase==="alloc") SFX.stamp(.12); }
   if(S.phase==="alloc") prefill();
   const t=titleOf(S)+orgOf(S); if(t!==lastTitle){ lastTitle=t; }
+  recordCards();
   save();
 }
-function startRun(){ S=newRun((Date.now()^(Math.random()*1e9))|0,nameDraft); drawStep=0; draft=[]; recent=[]; seenSummary=null; prevRanks=null; shown=null; shownAge=null; selPath=null; lastTitle=""; copied=""; lastResult=null; lastSlip=null; slipClosed=false; colOpen=false; view="game"; }
+function recordCards(){
+  if(!S) return; S.cardFinds=S.cardFinds||[]; let ch=false;
+  for(const c of S.cards){ const k=cardKey(c); if(!M.bcards[k]){ M.bcards[k]=1; S.cardFinds.push(k); ch=true; } }
+  const ck=cardKey(cardInfoOf(S)); if(ck!==lastCardKey){ cardFlip=!!lastCardKey; lastCardKey=ck; }
+  if(ch) saveMeta();
+}
+function startRun(){ S=newRun((Date.now()^(Math.random()*1e9))|0,nameDraft); drawStep=0; draft=[]; recent=[]; seenSummary=null; prevRanks=null; shown=null; shownAge=null; selPath=null; lastTitle=""; copied=""; lastResult=null; lastSlip=null; slipClosed=false; colOpen=false; cardOpen=null; lastCardKey=""; view="game"; }
 function act(a,b){
   draft.justAdded=false;
   if(a==="new"){ const el=document.getElementById("nm"); nameDraft=el?el.value.trim().slice(0,8):""; startRun(); SFX.page(); }
@@ -485,14 +525,20 @@ function act(a,b){
   else if(a==="reroll"){ if(M.rerolls>0){ M.rerolls--; saveMeta(); const nm=S.name; startRun(); S.name=nameDraft||nm; SFX.page(); } }
   else if(a==="resume-run"){ S=store.get("careerhigh.run"); view="game"; recent=S.summary?[S.summary]:[]; seenSummary=S.summary; lastSlip=S.summary; lastTitle=titleOf(S)+orgOf(S); shown=null; shownAge=S.age; lastResult=S.result; prefill(); }
   else if(a==="draw-next"){ drawStep++; SFX.stamp(); }
-  else if(a==="draw-done"){ beginYear(S); draft=[]; lastTitle=titleOf(S)+orgOf(S); save(); SFX.promo(); }
+  else if(a==="draw-done"){ beginYear(S); draft=[]; lastTitle=titleOf(S)+orgOf(S); recordCards(); cardFlip=false; save(); SFX.promo(); if(!M.guided) guideStep=0; }
+  else if(a==="guide-next"){ if(guideStep<GUIDE.length-1) guideStep++; else { guideStep=null; M.guided=true; saveMeta(); } SFX.tap(); }
+  else if(a==="guide-skip"){ guideStep=null; M.guided=true; saveMeta(); SFX.tap(); }
+  else if(a==="card"){ cardOpen=b.dataset.i==="cur"?"cur":+b.dataset.i; cardFlipped=false; SFX.page(); }
+  else if(a==="card-flip"){ cardFlipped=!cardFlipped; SFX.tap(); }
+  else if(a==="card-close"){ cardOpen=null; SFX.tap(); }
   else if(a==="add"){ if(draft.length<S.slots){ draft.push(b.dataset.k); draft.justAdded=true; SFX.post(draft.length-1); } }
   else if(a==="unslot"){ draft.splice(+b.dataset.i,1); SFX.unpost(); }
   else if(a==="clear"){ draft=[]; SFX.unpost(); }
   else if(a==="commit"){ recent=[]; SFX.page(); commitAlloc(S,counts(draft)); afterStep(); }
   else if(a==="ff"){
     SFX.page(); S.ffLog=[]; commitAlloc(S,counts(draft)); let n=1;
-    while(n<10&&S.phase==="alloc"&&!S.onLeave&&!S.flashes.length&&S.stats.burn<75&&S.stats.money>=0){ const al=autoAlloc(S); if(!al) break; commitAlloc(S,al); n++; }
+    let m0=S.stats.money;
+    while(n<10&&S.phase==="alloc"&&!S.onLeave&&!S.flashes.length&&S.stats.burn<75&&!(m0>=0&&S.stats.money<0)){ const al=autoAlloc(S); if(!al) break; m0=S.stats.money; commitAlloc(S,al); n++; }
     const log=S.ffLog||[]; S.ffLog=null; afterStep(); if(log.length>1&&S.phase==="alloc"){ recent=log; slipClosed=false; slipMini=false; log.forEach((m,i)=>SFX.stamp(.1+i*.11)); }
   }
   else if(a==="choose"){ M.cards[S.current]=1; choose(S,+b.dataset.i); afterStep(); saveMeta(); }
@@ -522,8 +568,9 @@ document.addEventListener("keydown",e=>{
   const tgt=e.target;
   if(tgt&&tgt.tagName==="INPUT"){ if(e.key==="Enter"&&view==="title"){ const b=app.querySelector("[data-act=new]"); if(b) act("new",b); } return; }
   if(tgt&&tgt.getAttribute&&tgt.getAttribute("role")==="button"&&tgt.dataset&&tgt.dataset.act&&(e.key==="Enter"||e.key===" ")){ e.preventDefault(); act(tgt.dataset.act,tgt); return; }
-  if(e.key==="Escape"){ if(view==="rec"){ act("close-rec"); return; } if(colOpen){ act("close-col"); return; } if(S&&S.flashes&&S.flashes.length&&view==="game"){ act("dismiss"); return; } if(selPath){ selPath=null; render(); return; } }
+  if(e.key==="Escape"){ if(cardOpen!=null){ act("card-close"); return; } if(guideStep!=null){ act("guide-skip"); return; } if(view==="rec"){ act("close-rec"); return; } if(colOpen){ act("close-col"); return; } if(S&&S.flashes&&S.flashes.length&&view==="game"){ act("dismiss"); return; } if(selPath){ selPath=null; render(); return; } }
   if(!S||view!=="game") return;
+  if(cardOpen!=null||guideStep!=null) return;
   if(S.flashes&&S.flashes.length){ if(e.key==="Enter"){ e.preventDefault(); act("dismiss"); } return; }
   if(S.phase==="event"&&e.key>="1"&&e.key<="9"){ const bs=app.querySelectorAll(".choice"); const b=bs[+e.key-1]; if(b&&!b.disabled) act("choose",b); }
 });
