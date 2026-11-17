@@ -36,8 +36,8 @@ function archive(){
   M.runs++; M.rerolls=Math.min(3,M.rerolls+1); f.finds=finds; saveMeta();
   const h=store.get("careerhigh.history")||[];
   let bp="org",bv=-1; for(const p in S.best) if(S.best[p]>bv){ bv=S.best[p]; bp=p; }
-  h.unshift({name:S.name,title:S.bestTitle||titleOf(S),end:f.hidden||f.title,age:S.age,job:j.name,nick:S.nickname,path:bp});
-  store.set("careerhigh.history",h.slice(0,12)); store.del("careerhigh.run");
+  h.unshift(makeRecord(S));
+  store.set("careerhigh.history",h.slice(0,20)); store.del("careerhigh.run"); town=null;
 }
 function nextHint(){
   const miss=[]; for(const jb in JOBS) for(const p in PATHS) if(!M.stamps[jb+"|"+p]) miss.push([jb,p]);
@@ -225,7 +225,7 @@ function hud(s){
   </header>`;
 }
 function statbar(s){
-  const TIP={skill:"일을 잘하는 정도. 승진, 대표작, 판정에 쓰인다",rep:"업계와 회사의 평가. 평가 점수와 스카우트에 쓰인다",net:"아는 사람. 높은 직급과 회사 성장에 필요하다",fame:"세상이 아는 정도. 명성의 길과 강연, 출간",life:"일 밖의 삶. 높으면 피로가 잘 풀린다",burn:"쌓인 피로. 70부터 칸이 줄고 100이면 쓰러진다"};
+  const TIP={skill:"일을 잘하는 정도. 승진, 대표 업적, 판정에 쓰인다",rep:"업계와 회사의 평가. 평가 점수와 스카우트에 쓰인다",net:"아는 사람. 높은 직급과 회사 성장에 필요하다",fame:"세상이 아는 정도. 명성의 길과 강연, 출간",life:"일 밖의 삶. 높으면 피로가 잘 풀린다",burn:"쌓인 피로. 70부터 칸이 줄고 100이면 쓰러진다"};
   const g=(k,cls,extra)=>{ const hot=k==="burn"&&s.stats.burn>=70; return `<div class="st ${hot?"hot":""}" data-stat="${k}" title="${TIP[k]}"><div class="row"><span>${STAT[k]}</span><b class="num">${s.stats[k]}</b></div><div class="gauge ${cls||""}"><i style="width:${s.stats[k]}%"></i>${extra||""}</div></div>`; };
   const cap=skillCap(s);
   return `<div class="statbar">${g("skill","",cap<100?`<u style="left:${cap}%" title="능력 한계 ${cap}"></u>`:"")}${g("rep")}${g("net")}${g("fame")}${g("life")}${g("burn","burn"+(s.stats.burn>=70?" hot":""))}
@@ -329,7 +329,7 @@ function vResultModal(){
     <button class="gbtn dark ${late}" data-act="next-event">다음</button></div></div>`;
 }
 function vOverlay(f){
-  const o=ORDER[f.kind]||["알림","확인","확인"];
+  let o=ORDER[f.kind]||["알림","확인","확인"]; if(f.kind==="mp") o=[opusOf(S)+" 완성",o[1],o[2]];
   const peakPath=f.kind==="peak"?(S.peaks.find(p=>p.name===f.title)||{}).path:null;
   let body="";
   const own=S.track==="founder";
@@ -372,7 +372,7 @@ function vLogBody(){
 function vRec(){
   const tabs=[["status","내 인생"],["resume","이력서"],["log","업무 수첩"],["cards","명함첩"]];
   let body="";
-  if(recTab==="status") body=`<div class="sheet"><div class="sheet-head"><h2 class="disp">여섯 갈래</h2><span class="aside">정점 ${S.peaks.length}개</span></div>
+  if(recTab==="status") body=`<div class="sheet"><div class="sheet-head"><h2 class="disp">지금까지의 인생</h2><span class="aside">${S.age}세</span></div>${storyHtml(makeRecord(S))}</div><div class="sheet"><div class="sheet-head"><h2 class="disp">여섯 갈래</h2><span class="aside">정점 ${S.peaks.length}개</span></div>
       <table class="formtbl">${Object.keys(PATHS).map(p=>{ const r=Math.max(ranksNow(S)[p],0); return `<tr><th style="border-left:4px solid ${PCOLOR[p]}">${PATHS[p]}</th><td><b>${r}층</b> ${r?esc(rankName(S,p,r)):""}<div class="small muted">다음: ${esc(nextReq(S,p))}</div></td></tr>`; }).join("")}</table></div>
     ${goalsBlock(S)}${tags(S)}
     <div class="btn-row"><button class="gbtn alt" data-act="to-title">처음 화면으로</button><button class="gbtn alt" data-act="mute">${M.mute?"소리 켜기":"소리 끄기"}</button></div>
@@ -398,7 +398,7 @@ function vCollection(){
       <p class="small muted">회사마다, 직급마다 명함이 다르다. 칸 하나가 직급 하나다.</p>
       <div class="dex">${cardGroups().map((g,gi,arr)=>{ const head=(gi===0||(arr[gi-1].job!==g.job)||g.own&&!arr[gi-1].own||g.free||g.misc)&&!(g.own&&arr[gi-1].own)?`<p class="dex-h">${g.own?"내 회사":g.free?"회사 밖":g.misc?"그 밖":JOBS[g.job].name}</p>`:""; const col=g.brand?g.brand.c:"var(--ink)";
         return head+`<div class="dex-row" style="--pc:${col}">${g.brand?markSvg(g.brand.mark,col,"#fff"):markSvg("mono",col,"#fff",g.label.charAt(0))}<span>${esc(g.label)}</span><span class="dex-dots">${g.keys.map(k=>`<i class="${M.bcards[k]?"on":""}"></i>`).join("")}</span></div>`; }).join("")}</div></div>
-    ${hist.length?`<div class="sheet"><div class="sheet-head"><h2 class="disp">지난 인생들</h2><span class="aside">${hist.length}명</span></div><div class="mini-cards">${hist.map(x=>`<div class="mini-card" style="--pc:${PCOLOR[x.path]||"var(--ink)"}"><span class="muted">${esc(x.job)}, ${x.age}세</span><b>${esc(x.name)}</b><span>${esc(x.end)}</span>${x.nick?`<span class="muted">${esc(x.nick)}</span>`:""}</div>`).join("")}</div></div>`:""}
+    ${hist.length?`<div class="sheet"><div class="sheet-head"><h2 class="disp">지난 인생들</h2><span class="aside">${hist.length}명</span></div><p class="small muted">누르면 그 인생의 명함과 요약이 나온다.</p>${residentsBlock(hist,140)}</div>`:""}
   </div></div>`;
 }
 
@@ -414,6 +414,7 @@ function vTitle(){
       <input type="text" id="nm" maxlength="8" value="${esc(nameDraft)}" autocomplete="off">
       <button class="gbtn" data-act="new">새 인생 시작</button>
       ${run&&run.v===3&&!run.final?`<button class="gbtn alt" data-act="resume-run">이어하기: ${esc(run.name)}, ${run.age}세</button>`:""}
+      <button class="gbtn alt" data-act="town">커리어 타운 (${getHist().length}명이 산다)</button>
       <div class="title-row"><button class="gbtn alt" data-act="col">수집첩</button><button class="gbtn alt" data-act="mute">${M.mute?"소리 켜기":"소리 끄기"}</button></div>
       <p class="small muted" style="text-align:center">다시 뽑기권 ${M.rerolls}장</p>
     </div></div></div>`;
@@ -446,6 +447,7 @@ function vEnding(){
         ${finds.length?`<ul class="lines">${finds.map((x,i)=>`<li class="find" style="animation-delay:${300+i*140}ms">${esc(x)}</li>`).join("")}</ul>`:`<p class="small muted">새로 모은 것은 없다. 다른 길을 걸어 보면 생긴다.</p>`}
         <p class="small"><span class="hl">${esc(nextHint())}</span></p>
         <div class="btn-row"><button class="gbtn alt" data-act="copy">${copied?esc(copied):"결과 복사하기"}</button><button class="gbtn" data-act="again">바로 다음 인생</button></div>
+        <button class="gbtn alt" data-act="town">커리어 타운에서 이 사람 만나기</button>
       </section>
       ${goalsBlock(S)}
       <section class="sheet"><div class="sheet-head"><h2 class="disp">한 사람의 그래프</h2></div>${lifeChart(S)}</section>
@@ -458,6 +460,165 @@ function vEnding(){
     </div></div>`;
 }
 
+/* ---------- 지난 인생: 기록, 요약, 커리어 타운 ---------- */
+let lifeOpen=null, lifeFlip=false, town=null;
+const JOB_SHORT={dev:"개발",cook:"요리",office:"회사 일",game:"게임 만드는 일",mech:"공장 일",bank:"은행 일",doctor:"병원 일",tutor:"가르치는 일",sales:"영업",build:"현장 일"};
+const JOB_LOOK={dev:["#3b4a6b","laptop"],game:["#5b3fa0","headset"],cook:["#f1f1ec","toque"],office:["#2b3a55","tie"],mech:["#2f6f9e","cap"],bank:["#1f2d3d","tie"],doctor:["#ffffff","cross"],tutor:["#8a5a3c","book"],sales:["#b5452f","bag"],build:["#d9822b","helmet"]};
+function josa(w,a,b){ w=String(w); const c=w.charCodeAt(w.length-1); if(c<0xAC00||c>0xD7A3) return w+b; return w+((c-0xAC00)%28?a:b); }
+function getHist(){ return store.get("careerhigh.history")||[]; }
+function makeRecord(s){
+  const f=s.final||{ranks:s.best,peaks:s.peaks,shames:[],title:"아직 사는 중",verdict:"",kind:"live"}, j=job(s);
+  let bp="org",bv=-1; for(const p in s.best) if(s.best[p]>bv){ bv=s.best[p]; bp=p; }
+  let card=cardInfoOf(s);
+  if(s.track==="rest"||s.track==="school"){ for(let i=s.cards.length-1;i>=0;i--){ const c=s.cards[i]; if(c.track==="career"||c.track==="founder"||c.track==="free"){ card=Object.assign({name:s.name},c); break; } } }
+  return {v:2,name:s.name,age:s.age,jobId:s.job,job:j.name,origin:s.origin,edu:s.edu,nick:s.nickname,path:bp,end:f.hidden||f.title,kind:f.kind,
+    title:s.bestTitle||titleOf(s),verdict:f.verdict,ranks:Object.assign({},f.ranks),peaks:(f.peaks||[]).map(p=>({path:p.path,age:p.age,name:p.name})),
+    marks:s.marks.slice(0,40),card:card,cards:s.cards.slice(-12),goals:s.goals.map(id=>({t:GOALS.find(g=>g.id===id).t,done:s.goalsDone[id]})),
+    nw:networth(s),shames:(f.shames||[]).map(l=>({age:l.age,text:l.text})),shameN:s.log.filter(l=>l.shame).length,jobChanges:s.counters.jobChanges,
+    founder:!!s.flags.founder,married:!!s.flags.married,divorced:!!s.flags.divorced,kids:s.kids.length,house:!!s.flags.house,pet:!!s.flags.pet,
+    perks:s.perks.map(p=>PERKS.find(x=>x.id===p).name)};
+}
+function lifeStory(r){
+  if(r.v!==2) return [];
+  const o=ORIGINS.find(x=>x.id===r.origin), out=[], first=r.marks.find(m=>m.k==="job"||m.k==="biz");
+  out.push(`${o?o.name+" 출신. ":""}${josa(EDU[r.edu]||"학교","을","를")} 나왔다.${first?` ${first.age}세에 ${first.t}.`:" 끝내 일자리를 얻지 못했다."}`);
+  let s2=`가장 높이 오른 자리는 ${r.title}.`;
+  if(first) s2+=r.jobChanges?` 회사는 ${r.jobChanges}번 옮겼다.`:(r.founder?"":" 한 번도 회사를 옮기지 않았다.");
+  if(r.founder) s2+=" 자기 사업을 차려 본 사람이다.";
+  out.push(s2);
+  const fam=[]; if(r.married) fam.push("결혼했다"); else if(r.divorced) fam.push("결혼했다가 헤어졌다");
+  if(r.kids) fam.push(`아이 ${r.kids}명을 키웠다`); if(r.house) fam.push("내 집을 마련했다"); if(r.pet) fam.push("반려동물과 살았다");
+  out.push(fam.length?fam.join(", ")+".":"가정은 꾸리지 않았고, 집도 사지 않았다.");
+  if(r.peaks.length) out.push(r.peaks.map(p=>`${p.age}세에 ${p.name}의 자리에 올랐다`).join(". ")+".");
+  else if(r.verdict) out.push(r.verdict);
+  if(r.shameN) out.push(`이력서에 못 쓴 일이 ${r.shameN}건 있다.`);
+  if(r.kind!=="live") out.push(`${r.age}세, ${r.end}. 남긴 순자산은 ${won(r.nw)}.`);
+  return out;
+}
+function storyHtml(r){
+  const mk={job:"var(--ink)",up:"var(--c-org)",biz:"var(--c-biz)",craft:"var(--c-craft)",peak:"var(--stamp)",life:"var(--c-life)",bad:"var(--muted)"};
+  return `${lifeStory(r).map(t=>`<p class="story-p">${esc(t)}</p>`).join("")}
+    ${r.marks&&r.marks.length?`<ol class="timeline">${r.marks.map(m=>`<li style="--mc:${mk[m.k]||"var(--ink)"}"><b class="num">${m.age}세</b><span>${esc(m.t)}</span></li>`).join("")}</ol>`:""}`;
+}
+function personSvg(r,star){
+  const look=JOB_LOOK[r.jobId]||["#4a5568",""], h=hashStr(r.name||"x"), skin=["#f2c9a5","#e8b58a","#f6d7b8"][h%3], hair=["#2a2320","#4a3526","#1d1d24","#6b5a4a","#8f8f97"][(h>>3)%5];
+  let acc="";
+  switch(look[1]){
+    case "toque": acc=`<path d="M12 9c-4-6 5-9 8-5 3-4 12-1 8 5z" fill="#fff" stroke="#c9ccd2"/><rect x="12" y="8" width="16" height="4" fill="#fff" stroke="#c9ccd2"/>`; break;
+    case "helmet": acc=`<path d="M10 13a10 10 0 0 1 20 0z" fill="#ffc21a"/><rect x="8" y="12" width="24" height="3" rx="1.5" fill="#e0a800"/>`; break;
+    case "cap": acc=`<path d="M11 12a9 9 0 0 1 18 0z" fill="#1f4f78"/><rect x="22" y="10.5" width="11" height="2.6" rx="1.2" fill="#1f4f78"/>`; break;
+    case "tie": acc=`<path d="M16 24h8l-4 5z" fill="#fff"/><path d="M20 27l-2.2 3 2.2 9 2.2-9z" fill="#d33a22"/>`; break;
+    case "cross": acc=`<path d="M20 29v9M15.500 33.500h9" stroke="#d33a22" stroke-width="2.600"/>`; break;
+    case "laptop": acc=`<rect x="23" y="32" width="13" height="9" rx="1.2" fill="#c9d2de" stroke="#8a94a3"/>`; break;
+    case "headset": acc=`<path d="M10 15a10 10 0 0 1 20 0" fill="none" stroke="#16181d" stroke-width="2.400"/><rect x="7.500" y="13" width="4.500" height="7" rx="2" fill="#16181d"/>`; break;
+    case "book": acc=`<rect x="24" y="30" width="10" height="12" rx="1" fill="#2f66d8"/><path d="M26.500 33.500h5M26.500 36.500h5" stroke="#fff" stroke-width="1.200"/>`; break;
+    case "bag": acc=`<path d="M27 36v-3h6v3" fill="none" stroke="#4a3320" stroke-width="1.600"/><rect x="24" y="36" width="12" height="9" rx="1.500" fill="#6b4a2b"/>`; break;
+  }
+  return `<svg viewBox="0 -9 40 69" aria-hidden="true">${star?`<path d="M20 -8l1.900 3.900 4.300.600-3.100 3 .700 4.300-3.800-2-3.800 2 .700-4.300-3.100-3 4.300-.600z" fill="#ffd21a" stroke="#16213b" stroke-width=".800"/>`:""}
+    <rect class="leg l" x="13.500" y="42" width="5.500" height="16" rx="2.500" fill="#232a3a"/><rect class="leg r" x="21" y="42" width="5.500" height="16" rx="2.500" fill="#232a3a"/>
+    <rect x="10" y="24" width="20" height="23" rx="7" fill="${look[0]}" stroke="#16213b" stroke-width="1.200"/>
+    <circle cx="20" cy="15" r="9" fill="${skin}" stroke="#16213b" stroke-width="1.200"/>
+    ${look[1]==="toque"||look[1]==="helmet"||look[1]==="cap"?"":`<path d="M11 14.500a9 9 0 0 1 18 0c-3-3.500-6-4.500-9-4.500s-6 1-9 4.500z" fill="${hair}"/>`}
+    <circle cx="18" cy="16.500" r="1.200" fill="#16213b"/><circle cx="24.500" cy="16.500" r="1.200" fill="#16213b"/>${acc}</svg>`.replace(/(\d\.\d)00\b/g,"$1");
+}
+function residentsBlock(hist,w){
+  return `<div class="res-grid">${hist.map((r,i)=>`<button class="res" data-act="life" data-i="${i}" style="--pc:${PCOLOR[r.path]||"var(--ink)"}">
+    ${r.card?cardHtml(r.card,{w:w||150}):`<span class="res-old">${esc(r.name)}</span>`}
+    <b>${esc(r.name)}</b><span>${esc(r.job)}, ${esc(r.end)}</span></button>`).join("")}</div>`;
+}
+function vLife(r){
+  const w=Math.min(340,window.innerWidth-76);
+  const dots=p=>[1,2,3,4,5].map(i=>`<i class="${i<=(r.ranks&&r.ranks[p]||0)?"on":""}"></i>`).join("");
+  return `<div class="modal" role="dialog" aria-modal="true" aria-label="${esc(r.name)}의 인생"><div class="mcard life" style="--pc:${PCOLOR[r.path]||"var(--ink)"}">
+    <span class="age-tag">${r.age}세</span><p class="small muted">${esc(r.job)}${r.nick?`, 별명 ${esc(r.nick)}`:""}</p><h2 class="disp">${esc(r.name)}</h2>
+    <p><span class="hl"><b>${esc(r.end)}</b></span></p>
+    ${r.card?`<div class="card-stage"><button data-act="life-flip" aria-label="명함 뒤집기">${cardHtml(r.card,{w:w,back:true,flipped:lifeFlip})}</button><p class="card-cap">마지막으로 들고 다닌 명함. 누르면 뒤집힌다.</p></div>`:""}
+    ${r.v===2?`<h3 class="disp life-h">어떻게 살았나</h3>${storyHtml(r)}
+    <h3 class="disp life-h">여섯 갈래</h3><div class="rankrows">${Object.keys(PATHS).map(p=>`<div class="rankrow" style="--pc:${PCOLOR[p]}"><span>${PATHS[p]}</span><span class="dots5">${dots(p)}</span><span class="muted">${r.ranks[p]?esc(rankNameRec(r,p)):"걷지 않은 길"}</span></div>`).join("")}</div>
+    <h3 class="disp life-h">버킷리스트</h3><div class="goals" style="transform:none">${r.goals.map(g=>`<p class="goal ${g.done!=null?"done":""}"><i></i><span>${esc(g.t)}</span>${g.done!=null?`<em>${g.done}세</em>`:""}</p>`).join("")}</div>
+    ${r.shames.length?`<h3 class="disp life-h">이력서에 못 쓴 이야기</h3>${r.shames.map(l=>`<p class="nb-line shame" style="line-height:1.3">${l.age}세, ${esc(l.text)}</p>`).join("")}`:""}
+    ${r.cards&&r.cards.length?`<h3 class="disp life-h">거쳐 간 명함 ${r.cards.length}장</h3><div class="card-strip">${r.cards.map(c=>`<div class="card-cell">${cardHtml(Object.assign({name:r.name},c),{w:150})}<span>${c.age}세</span></div>`).join("")}</div>`:""}
+    ${r.perks&&r.perks.length?`<div class="tags">${r.perks.map(x=>`<span class="tag perk">${esc(x)}</span>`).join("")}</div>`:""}`
+    :`<p class="small muted">예전 판에서 남긴 기록이라 요약이 없다. ${esc(r.title||"")}</p>`}
+    <button class="gbtn" data-act="life-close">닫기</button></div></div>`;
+}
+function rankNameRec(r,p){
+  const n=r.ranks[p], J=JOBS[r.jobId]||JOBS.dev;
+  if(p==="org") return J.titles[n+1]; if(p==="biz") return J.ftitles[n+1];
+  if(n===5&&J.peaks[p]) return J.peaks[p];
+  return PATH_RANKS[p][n-1];
+}
+function talkLines(a,b){
+  const c=[["명함 한 장 주시죠.","여기요. 저도 한 장 주세요."],["점심 드셨어요?","아직요. 같이 가시죠."],["요즘 어떻게 지내세요?","그럭저럭요. 덕분에."]];
+  if(a.jobId&&a.jobId===b.jobId) c.push([`요즘 ${josa(JOB_SHORT[b.jobId]||"일","은","는")} 어때요?`,"말도 마세요."],["우리 때는 더 힘들었죠?","지금이 더 힘들대요."]);
+  else if(a.jobId&&b.jobId) c.push([`${josa(JOB_SHORT[b.jobId],"은","는")} 할 만해요?`,`${josa(JOB_SHORT[a.jobId],"이","가")} 더 낫겠죠, 뭐.`]);
+  if(b.peaks&&b.peaks.length) c.push([`${b.peaks[0].name}까지 하셨다면서요?`,"운이 좋았죠."],["꼭대기는 어때요?","바람이 셉니다."]);
+  if(a.kind==="burnout") c.push(["쉬엄쉬엄 하세요. 제가 해 봐서 압니다.","명심할게요."]);
+  if(a.kind==="bankrupt") c.push(["보증은 절대 서지 마세요.","무슨 일 있으셨어요?"]);
+  if(b.nick) c.push([`아, 그 '${b.nick}'!`,"그 얘기는 그만합시다."]);
+  if(a.kids&&b.kids) c.push(["애들은 잘 커요?","벌써 저보다 큽니다."]);
+  if(b.founder) c.push(["사업은 할 만했어요?","다시 하라면 안 합니다. 아마도."]);
+  return c[Math.floor(Math.random()*c.length)];
+}
+function soloLine(r){
+  const c=["오늘은 칼퇴다.","명함이 몇 장 남았더라.","커피나 한잔할까."];
+  if(r.title) c.push(`${r.title} 시절이 좋았지.`);
+  if(r.nick) c.push(`다들 나를 '${r.nick}'라고 불렀지.`);
+  if(r.peaks&&r.peaks.length) c.push("꼭대기는 생각보다 좁더라.");
+  if(r.shameN>3) c.push("그 일은 무덤까지 가져간다.");
+  return c[Math.floor(Math.random()*c.length)];
+}
+function vTown(){
+  const hist=getHist(), walkers=hist.slice(0,10), best={org:0,craft:0,biz:0,fame:0,wealth:0,life:0}, peaks={};
+  for(const r of hist){ if(r.ranks) for(const p in best) best[p]=Math.max(best[p],r.ranks[p]||0); for(const p of (r.peaks||[])) peaks[p.path]=1; }
+  const hr=new Date().getHours()+new Date().getMinutes()/60, age=17+Math.max(0,Math.min(1,(hr-6)/15))*48;
+  if(!town||town.n!==walkers.length) town={n:walkers.length,raf:0,last:0,chars:walkers.map((r,i)=>({x:8+((i*37+11)%84),dir:i%2?1:-1,sp:1.800+(hashStr(r.name||"x")%10)*.160,state:"walk",until:0,cool:0,say:"",say2:null}))};
+  return `<div class="town"><header class="hud"><div class="who"><b>커리어 타운</b><span>지금까지 살아 본 ${hist.length}명이 사는 동네</span></div><span></span><div class="hud-btns"><button class="hbtn" data-act="to-title">나가기</button></div></header>
+    <div class="scene town-stage">${city({age:age,vb:"0 -60 600 332",ranks:best,peaks:peaks,label:"지난 인생들이 올린 층이 모인 도시"})}
+      <div class="walkers">${walkers.map((r,i)=>`<button class="walker" id="wk-${i}" data-act="life" data-i="${i}" style="left:${town.chars[i].x}%;bottom:${4+(i*7)%13}px;z-index:${20-(i*7)%13}" aria-label="${esc(r.name)}, ${esc(r.job)}. 인생 요약 보기"><span class="bub" hidden></span><span class="fig">${personSvg(r,r.peaks&&r.peaks.length)}</span><span class="wname">${esc(r.name)}</span></button>`).join("")}</div>
+      ${hist.length?"":`<div class="town-empty"><b class="disp">아직 아무도 살지 않는다</b><span>한 인생을 끝까지 살면 그 사람이 이 동네로 이사 온다.</span></div>`}</div>
+    <div class="town-body">
+      ${hist.length?`<p class="small muted">도시의 층은 지금까지의 인생들이 각 길에서 가장 높이 오른 기록이다. 사람을 누르면 그 인생의 명함과 요약이 나온다.</p>${residentsBlock(hist)}`:""}
+      <div class="btn-row"><button class="gbtn alt" data-act="col">수집첩</button><button class="gbtn" data-act="again">새 인생 시작</button></div>
+    </div></div>`;
+}
+function townStart(){
+  if(!town||town.raf||reduce) return; town.last=performance.now();
+  const hist=getHist();
+  const setBub=(i,t)=>{ const el=document.getElementById("wk-"+i); if(!el) return; const b=el.querySelector(".bub"); b.textContent=t; b.hidden=!t; };
+  const tick=now=>{
+    const stage=app.querySelector(".walkers");
+    if(!stage||view!=="town"||lifeOpen!=null||colOpen){ town.raf=0; return; }
+    const dt=Math.min(.1,(now-town.last)/1000); town.last=now; const cs=town.chars;
+    for(let i=0;i<cs.length;i++){ const c=cs[i];
+      if(c.state==="walk"){ c.x+=c.dir*c.sp*dt; if(c.x<5){ c.x=5; c.dir=1; } if(c.x>95){ c.x=95; c.dir=-1; }
+        if(Math.random()<dt*.060){ c.state="idle"; c.until=now+1400+Math.random()*1800; if(Math.random()<.5){ c.say=soloLine(hist[i]); setBub(i,c.say); } } }
+      else{ if(c.say2&&now>c.say2.at){ setBub(c.say2.i,c.say2.t); c.say2=null; }
+        if(now>c.until){ c.state="walk"; c.say=""; setBub(i,""); if(Math.random()<.4) c.dir*=-1; } }
+    }
+    for(let i=0;i<cs.length;i++) for(let k=i+1;k<cs.length;k++){ const a=cs[i], b=cs[k];
+      if(a.state==="walk"&&b.state==="walk"&&now>a.cool&&now>b.cool&&Math.abs(a.x-b.x)<7&&Math.abs(a.x-b.x)>3){
+        const L=talkLines(hist[i],hist[k]); a.state=b.state="talk"; a.until=b.until=now+3800; a.cool=b.cool=now+12000;
+        a.dir=a.x<b.x?1:-1; b.dir=-a.dir; setBub(i,L[0]); a.say2={i:k,t:L[1],at:now+1500}; } }
+    for(let i=0;i<cs.length;i++){ const el=document.getElementById("wk-"+i); if(!el) continue; const c=cs[i];
+      el.style.left=c.x.toFixed(2)+"%"; el.classList.toggle("flip",c.dir<0); el.classList.toggle("walking",c.state==="walk"); }
+    town.raf=requestAnimationFrame(tick);
+  };
+  town.raf=requestAnimationFrame(tick);
+}
+function seedLives(n){
+  for(let k=0;k<n;k++){
+    S=newRun(1234567+k*7919,""); beginYear(S); let g=0;
+    while(S.phase!=="ending"&&g++<4000){ S.flashes.length=0;
+      if(S.phase==="alloc"){ const acts=actionsOf(S).map(a=>a[0]), al={}, seq=acts.indexOf("work")>=0?[["work","work","study","rest"],["work","family","craft","rest"],["work","network","fame","rest"]][k%3]:["study","study","family","rest"]; for(let i=0;i<S.slots;i++){ const a=acts.indexOf(seq[i%4])>=0?seq[i%4]:"rest"; al[a]=(al[a]||0)+1; } commitAlloc(S,al); }
+      else if(S.phase==="event"){ const v=visibleChoices(S,cardById(S.current)).filter(x=>!locked(S,x.c)); choose(S,v[(g+k)%v.length].i); }
+      else nextEvent(S);
+      recordCards(); }
+    archive();
+  }
+  S=null; view="title";
+}
+
 /* ---------- 그리기 ---------- */
 function fitScenes(){
   app.querySelectorAll("svg.city").forEach(svg=>{ const r=svg.getBoundingClientRect(); if(!r.width||!r.height) return;
@@ -468,7 +629,8 @@ window.addEventListener("resize",()=>fitScenes());
 function render(){
   clearTimers();
   let h="";
-  if(view==="title"){ h=vTitle(); if(colOpen) h+=vCollection(); }
+  if(view==="town"){ h=vTown(); if(colOpen) h+=vCollection(); }
+  else if(view==="title"){ h=vTitle(); if(colOpen) h+=vCollection(); }
   else if(S.phase==="draw") h=vDraw();
   else if(S.phase==="ending"){ h=vEnding(); if(view==="rec") h+=vRec(); }
   else{
@@ -481,10 +643,12 @@ function render(){
       else if(S.phase==="result") h+=vResultModal();
     }
   }
+  if(lifeOpen!=null){ const r=getHist()[lifeOpen]; if(r) h+=vLife(r); else lifeOpen=null; }
   if(cardOpen!=null&&S) h+=vCardModal();
   if(guideStep!=null&&S&&view==="game") h+=vGuide();
   app.innerHTML=h;
   fitScenes();
+  if(view==="town") townStart();
   animateStats();
   const fl=S&&view==="game"&&S.phase!=="ending"&&S.phase!=="draw"&&S.flashes&&S.flashes.length?S.flashes[0]:null;
   const fk=fl?fl.kind+"|"+fl.title+"|"+S.age+"|"+S.flashes.length:"";
@@ -499,7 +663,7 @@ function render(){
   const focus=app.querySelector(".modal .gbtn, .modal .choice:not([disabled])"); if(focus&&!app.querySelector(".panel")) focus.focus({preventScroll:true});
   if(focusAge!=null){ const el=document.getElementById("log-"+focusAge); if(el) el.scrollIntoView({block:"start"}); focusAge=null; }
   const key=view+"|"+(S?S.phase+"|"+S.age:"");
-  if(key!==lastKey&&(view==="title"||(S&&S.phase==="ending"))) window.scrollTo(0,0);
+  if(key!==lastKey&&(view==="title"||view==="town"||(S&&S.phase==="ending"))) window.scrollTo(0,0);
   lastKey=key;
 }
 
@@ -556,9 +720,13 @@ function act(a,b){
   else if(a==="rec"){ recTab=b&&b.dataset.tab||"status"; view="rec"; SFX.tap(); }
   else if(a==="close-rec"){ view="game"; SFX.tap(); }
   else if(a==="col"){ colOpen=true; SFX.tap(); }
+  else if(a==="town"){ view="town"; colOpen=false; lifeOpen=null; SFX.page(); }
+  else if(a==="life"){ lifeOpen=+b.dataset.i; lifeFlip=false; SFX.page(); }
+  else if(a==="life-flip"){ lifeFlip=!lifeFlip; SFX.tap(); }
+  else if(a==="life-close"){ lifeOpen=null; SFX.tap(); }
   else if(a==="close-col"){ colOpen=false; SFX.tap(); }
   else if(a==="gap"){ recTab="log"; view="rec"; const want=+b.dataset.age; const ages=S.log.map(l=>l.age).filter(x=>x>=want).sort((x,y)=>x-y); focusAge=ages.length?ages[0]:null; }
-  else if(a==="to-title"){ view="title"; colOpen=false; }
+  else if(a==="to-title"){ view="title"; colOpen=false; lifeOpen=null; }
   else if(a==="copy"){ const t=shareText(); try{ navigator.clipboard.writeText(t).then(()=>{ copied="복사했다"; render(); },()=>{ copied="복사가 막혀 있다"; render(); }); }catch(err){ copied="복사가 막혀 있다"; } }
   if(S&&S.final) archive();
   render();
@@ -568,13 +736,14 @@ document.addEventListener("keydown",e=>{
   const tgt=e.target;
   if(tgt&&tgt.tagName==="INPUT"){ if(e.key==="Enter"&&view==="title"){ const b=app.querySelector("[data-act=new]"); if(b) act("new",b); } return; }
   if(tgt&&tgt.getAttribute&&tgt.getAttribute("role")==="button"&&tgt.dataset&&tgt.dataset.act&&(e.key==="Enter"||e.key===" ")){ e.preventDefault(); act(tgt.dataset.act,tgt); return; }
-  if(e.key==="Escape"){ if(cardOpen!=null){ act("card-close"); return; } if(guideStep!=null){ act("guide-skip"); return; } if(view==="rec"){ act("close-rec"); return; } if(colOpen){ act("close-col"); return; } if(S&&S.flashes&&S.flashes.length&&view==="game"){ act("dismiss"); return; } if(selPath){ selPath=null; render(); return; } }
+  if(e.key==="Escape"){ if(lifeOpen!=null){ act("life-close"); return; } if(view==="town"&&!colOpen){ act("to-title"); return; } if(cardOpen!=null){ act("card-close"); return; } if(guideStep!=null){ act("guide-skip"); return; } if(view==="rec"){ act("close-rec"); return; } if(colOpen){ act("close-col"); return; } if(S&&S.flashes&&S.flashes.length&&view==="game"){ act("dismiss"); return; } if(selPath){ selPath=null; render(); return; } }
   if(!S||view!=="game") return;
   if(cardOpen!=null||guideStep!=null) return;
   if(S.flashes&&S.flashes.length){ if(e.key==="Enter"){ e.preventDefault(); act("dismiss"); } return; }
   if(S.phase==="event"&&e.key>="1"&&e.key<="9"){ const bs=app.querySelectorAll(".choice"); const b=bs[+e.key-1]; if(b&&!b.disabled) act("choose",b); }
 });
 function start(data){ if(data&&data.S&&data.S.v===3){ S=data.S; view=data.view==="rec"?"game":(data.view||"game"); draft=data.draft||[]; drawStep=data.drawStep||0; lastTitle=titleOf(S)+orgOf(S); recent=S.summary?[S.summary]:[]; seenSummary=S.summary; lastSlip=S.summary; lastResult=S.result; shownAge=S.age; if(S.flashes&&S.flashes[0]) lastFlash=S.flashes[0].kind+"|"+S.flashes[0].title+"|"+S.age+"|"+S.flashes.length; } render(); }
+if(location.protocol==="file:"&&location.hash==="#seed"&&!getHist().length) seedLives(7);
 const hot=window.claude&&window.claude.hot;
 if(hot&&hot.snapshot) hot.snapshot(()=>({S:S,view:view,draft:Array.from(draft),drawStep:drawStep}));
 if(hot&&hot.ready) hot.ready(start); else start((hot&&hot.data)||{});

@@ -182,3 +182,6 @@ CARDS.push(
    {text:"내 돈으로 임금을 준다",hint:"현금 -2,000만 원",effects:{money:-2000,rep:8,net:6},result:"다음 현장에 부르지도 않은 사람들이 왔다. \"사장님 일이면 합니다.\""},
    {text:"나도 못 준다고 한다",effects:{rep:-10,net:-6},result:"현장 사무실 앞에 사람들이 모였다.",shame:"인부들 임금을 못 줬다"}]}
 );
+
+/* 장인의 길에서 쌓는 것의 이름은 직군마다 다르다 */
+{ const OPUS={dev:"대표작",game:"대표작",cook:"대표 메뉴",office:"대표 프로젝트",mech:"대표 기술",bank:"대표 거래",doctor:"대표 업적",tutor:"대표 강의",sales:"대표 실적",build:"대표 시공"}; for(const k in OPUS) JOBS[k].opus=OPUS[k]; }

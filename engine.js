@@ -16,6 +16,7 @@ function perk(s,p){ return s.perks.indexOf(p)>=0; }
 function job(s){ return JOBS[s.job]; }
 function working(s){ return WORKING.indexOf(s.track)>=0; }
 function networth(s){ return s.stats.money+s.assets; }
+function opusOf(s){ return job(s).opus||"대표작"; }
 function titleOf(s){
   if(s.track==="school") return (s.edu==="univ"||s.edu==="college")?"대학생":"고등학생";
   if(s.track==="rest") return s.everJoined?"구직 중":"취업 준비생";
@@ -95,7 +96,7 @@ function beginYear(s){
   else s.slots=slotsOf(s);
   s.phase="alloc";
 }
-function actionsOf(s){ return ACTIONS[s.track].filter(a=>a[0]!=="invest"||s.age>=25).map(a=>[a[0],A[a[1]][0],A[a[1]][1]]); }
+function actionsOf(s){ return ACTIONS[s.track].filter(a=>a[0]!=="invest"||s.age>=25).map(a=>[a[0],a[0]==="craft"?opusOf(s):A[a[1]][0],A[a[1]][1]]); }
 
 function commitAlloc(s,alloc){
   s.lastAlloc=Object.assign({},alloc); s.summary=null;
@@ -339,7 +340,7 @@ function checkPeaks(s){
 }
 const PATH_TIPS={
   org:"회사에서 좋은 평가를 받아 승진한다. 위로 갈수록 자리가 적고 인맥과 평판이 필요하다.",
-  craft:"능력을 키우고 대표작을 완성해 한계를 깬다. 공부를 쉬면 실력이 녹슨다.",
+  craft:"능력을 키우고 그 일의 대표 업적을 쌓아 한계를 깬다. 공부를 쉬면 실력이 녹슨다.",
   biz:"내 회사를 차려 키운다. 돈이 마르면 끝이다.",
   fame:"대외 활동으로 이름을 알린다. 꼭대기에는 책이나 방송 한 방이 필요하다.",
   wealth:"아끼고 굴린다. 집과 현금을 합친 순자산으로 잰다.",
@@ -350,7 +351,7 @@ function nextReq(s,p){
   if(s.peakAt[p]&&b>=5) return "정점";
   if(p==="org"){ if(s.track!=="career") return "회사에 다녀야 한다"; if(s.stage>=6) return "정점"; const l=promoLack(s); return "승진 점수 "+s.pp+"/"+promoNeed(s).pp+(l.length?", "+l.join(", "):""); }
   if(p==="biz"){ if(s.track!=="founder") return "창업해야 한다 ("+won(job(s).cost)+")"; if(s.stage>=6) return "정점"; const l=promoLack(s); return "성장 점수 "+s.pp+"/"+promoNeed(s).pp+(l.length?", "+l.join(", "):""); }
-  if(p==="craft"){ const c=RULES.craft[Math.min(4,b)]; return "능력 "+c[0]+(c[1]?", 대표작 "+c[1]+"편":"")+" (지금 "+s.mp+"편, 한계 "+skillCap(s)+")"; }
+  if(p==="craft"){ const c=RULES.craft[Math.min(4,b)]; return "능력 "+c[0]+(c[1]?", "+opusOf(s)+" "+c[1]+"건":"")+" (지금 "+s.mp+"건, 한계 "+skillCap(s)+")"; }
   if(p==="fame"){ const i=Math.min(4,b); return "명성 "+RULES.fame[i]+(i===4?", 책이나 방송으로 한 번 터져야 한다":""); }
   if(p==="wealth") return "순자산 "+won(RULES.wealth[Math.min(4,b)]);
   const i=Math.min(4,b); return "좋은 해 "+s.lifeYears+"/"+RULES.lifeYears[i]+"년"+(i===4?", 일상 80":"");
@@ -402,8 +403,8 @@ function yearEnd(s){
   /* 대표작 */
   if(s.prog>=4){
     let p=15+(st.skill-50)*0.9+(perk(s,"master")?15:0)+(has(s,"lucky")?10:0); p=Math.max(5,Math.min(90,p));
-    if(rnd(s)*100<p){ const nm=j.works[Math.min(s.mp,j.works.length-1)]; s.mp++; s.prog=0; st.rep+=6; st.fame+=5; resumeAdd(s,"대표작: "+nm); logAdd(s,"대표작을 완성했다: "+nm); push("대표작 완성: "+nm+". 능력 한계가 "+skillCap(s)+"로 올랐다."); mark(s,"craft",nm); flash(s,"mp",nm,"대표작 "+s.mp+"편째. 능력 한계가 "+skillCap(s)+"로 올랐다."); }
-    else{ s.prog=0; addBurn(s,8,true); logAdd(s,"대표작이 될 뻔한 것을 엎었다",true); push("대표작 도전 실패. 처음부터 다시 쌓는다."); }
+    if(rnd(s)*100<p){ const nm=j.works[Math.min(s.mp,j.works.length-1)]; s.mp++; s.prog=0; st.rep+=6; st.fame+=5; resumeAdd(s,opusOf(s)+": "+nm); logAdd(s,opusOf(s)+" 완성: "+nm); push(opusOf(s)+" 완성: "+nm+". 능력 한계가 "+skillCap(s)+"로 올랐다."); mark(s,"craft",nm); flash(s,"mp",nm,opusOf(s)+" "+s.mp+"건째. 능력 한계가 "+skillCap(s)+"로 올랐다."); }
+    else{ s.prog=0; addBurn(s,8,true); logAdd(s,opusOf(s)+" 도전에 실패했다",true); push(opusOf(s)+" 도전 실패. 처음부터 다시 쌓는다."); }
   }
   /* 낡음과 회복 */
   if(!perk(s,"lifelong")&&working(s)){ if(s.age>=30&&!s.studied) st.skill-=s.age>=45?3:2; else if(s.age>=50) st.skill-=1; }

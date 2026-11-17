@@ -513,3 +513,50 @@ ul.lines li::before{content:"";position:absolute;left:2px;top:.72em;width:6px;he
 
 .mstats{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:12px;color:var(--muted);border-top:1px dashed var(--rule);border-bottom:1px dashed var(--rule);padding:5px 0}
 .mstats b{color:var(--ink);font-weight:600}
+
+/* ===== 커리어 타운, 인생 요약 ===== */
+.town{min-height:100dvh;display:flex;flex-direction:column}
+.town .hud{grid-template-columns:1fr auto auto}
+.town .who{border-left-color:var(--hl)}
+.town .who span{max-width:60vw}
+.town-stage{grid-area:auto;min-height:max(300px,52dvh)}
+.walkers{position:absolute;inset:0;pointer-events:none}
+.walker{position:absolute;width:46px;margin-left:-23px;display:flex;flex-direction:column;align-items:center;pointer-events:auto;border-radius:8px}
+.walker .fig{display:block;width:46px;transition:transform .2s ease}
+.walker.flip .fig{transform:scaleX(-1)}
+.walker .fig svg{display:block;width:100%;height:auto}
+.walker.walking .fig svg{animation:bob .46s ease-in-out infinite}
+@keyframes bob{50%{transform:translateY(-2.5px)}}
+.walker.walking .leg.l{animation:stepl .46s linear infinite}
+.walker.walking .leg.r{animation:stepl .46s linear infinite reverse}
+.walker .leg{transform-box:fill-box;transform-origin:top center}
+@keyframes stepl{0%{transform:rotate(-22deg)}50%{transform:rotate(22deg)}100%{transform:rotate(-22deg)}}
+.walker .wname{font-size:11px;font-weight:600;color:#f8f9f6;background:rgba(22,33,59,.78);padding:0 6px;border-radius:999px;white-space:nowrap;margin-top:-2px}
+.walker:hover .fig{filter:brightness(1.12)}
+.walker .bub{position:absolute;bottom:calc(100% + 2px);left:50%;transform:translateX(-50%);width:max-content;max-width:150px;background:#fff;color:#16213b;font-size:12px;line-height:1.35;padding:5px 9px;border-radius:10px;border:1.5px solid #16213b;box-shadow:0 3px 0 #16213b;animation:bubin .2s ease both;text-align:left}
+.walker .bub::after{content:"";position:absolute;left:50%;top:100%;margin-left:-5px;border:5px solid transparent;border-top-color:#16213b}
+.walker .bub[hidden]{display:none}
+@keyframes bubin{from{transform:translateX(-50%) scale(.7);opacity:0}}
+.town-empty{position:absolute;left:0;right:0;top:22%;text-align:center;color:#f8f9f6;display:flex;flex-direction:column;gap:6px;padding:0 20px;text-shadow:0 2px 10px rgba(0,0,0,.5)}
+.town-empty b{font-size:26px}
+.town-body{background:var(--paper);border-top:3px solid var(--hud);padding:14px 14px 30px;display:flex;flex-direction:column;gap:12px;flex:1}
+.town-body>*{width:min(760px,100%);margin-left:auto;margin-right:auto}
+.res-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:16px 10px}
+.res{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:12px;color:var(--muted);text-align:center;border-radius:8px;padding:4px 2px;transition:transform .12s ease}
+.res:hover{transform:translateY(-3px)}
+.res b{font-family:var(--f-disp);font-weight:400;font-size:16px;color:var(--ink);letter-spacing:.08em;margin-top:4px;border-bottom:3px solid var(--pc)}
+.res-old{display:flex;align-items:center;justify-content:center;width:150px;aspect-ratio:9/5;background:var(--card);border:1px dashed var(--rule);border-radius:6px}
+.mcard.life{width:min(600px,100%)}
+.life-h{font-size:17px;margin-top:6px;border-bottom:2px solid var(--ink);padding-bottom:2px}
+.story-p{font-size:15px;line-height:1.65}
+.timeline{list-style:none;margin:4px 0 0;padding:0 0 0 8px;border-left:2px solid var(--rule);display:flex;flex-direction:column;gap:3px;font-size:13.5px}
+.timeline li{position:relative;display:grid;grid-template-columns:44px 1fr;gap:6px;padding-left:10px}
+.timeline li::before{content:"";position:absolute;left:-14px;top:.5em;width:9px;height:9px;border-radius:50%;background:var(--mc);border:2px solid var(--card)}
+.timeline b{font-weight:600}
+.rankrows{display:flex;flex-direction:column;gap:4px;font-size:13px}
+.rankrow{display:grid;grid-template-columns:38px 78px 1fr;gap:8px;align-items:center}
+.rankrow>span:first-child{font-weight:600}
+.dots5{display:flex;gap:3px}
+.dots5 i{width:12px;height:12px;border:1.5px solid var(--ink);display:block}
+.dots5 i.on{background:var(--pc)}
+.card-strip{display:flex;gap:12px;overflow-x:auto;padding:4px 2px 12px}
