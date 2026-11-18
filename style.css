@@ -604,3 +604,22 @@ ul.lines li::before{content:"";position:absolute;left:2px;top:.72em;width:6px;he
   .mstats{display:none}
   .pc{min-height:58px}
 }
+
+/* ---------- 10판: 연도, 타운의 집과 회사 ---------- */
+.clock .age .yr{display:block;font-style:normal;font-size:11px;font-weight:600;opacity:.75;letter-spacing:.02em;line-height:1;margin-top:1px}
+.clock .age{flex-wrap:wrap}
+th .yr{display:block;font-size:10px;font-weight:500;color:var(--muted);line-height:1}
+.timeline b small{font-size:10px;font-weight:500;opacity:.7}
+.town-stage{--sh:max(300px,52dvh)}
+.street{position:absolute;left:0;right:0;bottom:calc(var(--sh)*.1205);height:0;pointer-events:none}
+.bld{position:absolute;bottom:0;transform:translateX(-50%);--k:1;width:calc(min(var(--sh)*.21,100vw/var(--n,6)*1.05)*var(--k));display:flex;flex-direction:column;align-items:center;justify-content:flex-end;pointer-events:auto;border-radius:4px;z-index:2}
+.bld.back{bottom:calc(var(--sh)*0.035);transform:translateX(-50%) scale(.86);transform-origin:bottom center;z-index:1;filter:brightness(.88)}
+.bld svg{display:block;width:100%;height:auto;filter:drop-shadow(0 2px 0 rgba(22,33,59,.35))}
+.bld.apt{--k:.8}
+.bld.detached{--k:1.2}
+.bld.mansion{--k:1.45}
+.bld.first .bsign{left:0;transform:none}.bld.last .bsign{left:auto;right:0;transform:none}
+.bld:hover svg,.bld:focus-visible svg{filter:brightness(1.1) drop-shadow(0 2px 0 rgba(22,33,59,.35))}
+.bld:focus-visible{outline:2px solid var(--hl);outline-offset:2px}
+.bsign{position:absolute;top:-14px;left:50%;transform:translateX(-50%);font-size:10px;font-weight:700;color:#fff;background:var(--c-biz);padding:0 4px;border-radius:3px;white-space:nowrap;max-width:max(100%,64px);overflow:hidden;text-overflow:ellipsis}
+.walkers{z-index:3}
