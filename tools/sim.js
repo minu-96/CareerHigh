@@ -1,6 +1,13 @@
-const fs=require('fs');const src=fs.readFileSync(process.argv[2]+'/data.js','utf8')+fs.readFileSync(process.argv[2]+'/jobs2.js','utf8')+fs.readFileSync(process.argv[2]+'/engine.js','utf8');
+const fs=require('fs');const src=fs.readFileSync(process.argv[2]+'/data.js','utf8')+fs.readFileSync(process.argv[2]+'/jobs2.js','utf8')+fs.readFileSync(process.argv[2]+'/era.js','utf8')+fs.readFileSync(process.argv[2]+'/engine.js','utf8');
 const api=new Function(src+';return {newRun,beginYear,commitAlloc,choose,nextEvent,advance,actionsOf,cardById,visibleChoices,locked,titleOf,CARDS,slotsOf,networth,JOBS,ranksNow};')();
 const N=+process.argv[3]||800;
+/* 'ghost'를 넣으면 지난 인생 기록을 가짜로 채워 지난 인생의 회사가 나오는지 본다 */
+const GHOST=process.argv[4]==='ghost';
+const HIST=GHOST?Object.keys(api.JOBS).flatMap((jb,i)=>[
+  {name:'가'+i,born:1960+i*3,firm:{name:'옛'+jb+'컴퍼니',job:jb,from:1985+i*2,to:1999+i*2,top:3,status:'closed'}},
+  {name:'나'+i,born:1980+i*2,firm:{name:'지금'+jb+'랩스',job:jb,from:2005+i,to:null,top:4,status:'open'}},
+  {name:'다'+i,born:1970+i,firm:{name:'거대'+jb+'그룹',job:jb,from:1995,to:null,top:5,status:'open'}}]):[];
+const GST={hire:0,cards:{}};
 const AVOID=['found','found_team','found_with_rival','found_family','quit_move','go_free','switch_job','retire_now','retire_self','honor_retire','sell','severance','sabbatical','leave'];
 const PREF={org:['politics','mad','night','body','loyal'],craft:['master','lifelong','hands','body','night'],biz:['eye','mad','night','body','nerve'],fame:['speaker','body','night','lifelong'],wealth:['compound','frugal','body','night'],life:['family','calm','body'],random:[]};
 function plan(s,style,R){
@@ -24,13 +31,13 @@ for(const style of ['random','org','craft','biz','fame','wealth','life']){
   for(let i=1;i<=N;i++){
     let r=i*7919+style.length;const R=()=>{r=(r*1103515245+12345)&0x7fffffff;return r/0x7fffffff;};
     try{
-      const s=api.newRun(i*7919,'');api.beginYear(s);let guard=0;
+      const s=api.newRun(i*7919,'',HIST);api.beginYear(s);let guard=0;
       while(s.phase!=='ending'&&guard++<3000){
         if(s.phase==='alloc'){s.flashes.length=0;
           if(style==='biz'&&s.track==='career'&&s.age>=27&&s.age<50&&s.stats.money>=api.JOBS[s.job].cost+3000&&!s.onLeave&&!s.flags.closed_once){ s.current='resign';s.phase='event';api.choose(s,1);s.result=null;s.slots=api.slotsOf(s);s.phase='alloc'; }
           if(style==='fame'&&s.track==='career'&&s.stats.fame>=22&&s.stats.skill>=30&&!s.onLeave){ s.current='resign';s.phase='event';api.choose(s,2);s.result=null;s.slots=api.slotsOf(s);s.phase='alloc'; }
           api.commitAlloc(s,plan(s,style,R));yrs++;}
-        else if(s.phase==='event'){const c=api.cardById(s.current);seen[c.id]=1;let v=api.visibleChoices(s,c).filter(x=>!api.locked(s,x.c));
+        else if(s.phase==='event'){const c=api.cardById(s.current);seen[c.id]=1;if(c.id.startsWith('ghost')||c.id.startsWith('era'))GST.cards[c.id]=(GST.cards[c.id]||0)+1;let v=api.visibleChoices(s,c).filter(x=>!api.locked(s,x.c));
           if(c.id==='perk'){const pf=PREF[style];const hit=v.find(x=>pf.includes(x.c.perkId));api.choose(s,(hit||v[Math.floor(R()*v.length)]).i);evs++;continue;}
           const ok=v.filter(x=>{const d=x.c.effects&&x.c.effects.do;if(!d)return true;if(style==='biz'&&d.startsWith('found'))return true;if(style==='random')return true;return !AVOID.includes(d);});
           if(ok.length)v=ok;if(!v.length){errs++;console.log('nochoice',c.id);break;}
@@ -38,6 +45,7 @@ for(const style of ['random','org','craft','biz','fame','wealth','life']){
         else if(s.phase==='result'){s.flashes.length=0;api.nextEvent(s);}
         else{errs++;console.log('badphase',s.phase);break;}
       }
+      if(s.ghostCo)GST.hire++;
       if(!s.final){errs++;console.log('nofinal',style,i,s.phase,s.age,guard);continue;}
       for(const k of Object.keys(s.stats))if(!Number.isFinite(s.stats[k])){errs++;console.log('NaN',k);}
       ends[s.final.kind]=(ends[s.final.kind]||0)+1;if(s.final.peaks.length)any++;
@@ -50,4 +58,5 @@ for(const style of ['random','org','craft','biz','fame','wealth','life']){
   out[style]=seen;
 }
 const all=new Set();for(const k in out)for(const id in out[k])all.add(id);
+if(GHOST||1)console.log('ghost/era',JSON.stringify(GST));
 console.log('never:',api.CARDS.filter(c=>!all.has(c.id)).map(c=>c.id));

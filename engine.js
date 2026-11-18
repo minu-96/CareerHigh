@@ -33,10 +33,10 @@ function mark(s,k,t){ s.marks.push({age:s.age,k:k,t:t}); }
 function flash(s,kind,title,sub){ s.flashes.push({kind:kind,title:title,sub:sub||""}); }
 function logAdd(s,text,shame){ s.log.push({age:s.age,text:text,shame:!!shame}); }
 function resumeAdd(s,text){ s.resume.push({age:s.age,text:text}); }
-function cardIssue(s){ const c={age:s.age,title:titleOf(s),org:orgOf(s),job:s.job,track:s.track,stage:s.stage,co:s.company,tier:s.track==="career"?(s.companyMult>=1.2?"big":"small"):s.track==="founder"?"own":"",edu:s.edu}; const l=s.cards[s.cards.length-1]; if(!l||l.title!==c.title||l.org!==c.org) s.cards.push(c); }
+function cardIssue(s){ const c={age:s.age,title:titleOf(s),org:orgOf(s),job:s.job,track:s.track,stage:s.stage,co:s.company,tier:s.track==="career"?(s.companyMult>=1.2?"big":"small"):s.track==="founder"?"own":"",edu:s.edu,ghost:s.track==="career"&&!!s.company&&s.company===s.ghostCo}; const l=s.cards[s.cards.length-1]; if(!l||l.title!==c.title||l.org!==c.org) s.cards.push(c); }
 
-function newRun(seed,name){
-  const s={v:3,goals:[],goalsDone:{},streak:0,seed:seed|0,name:"",age:17,origin:"",edu:"",traits:[],perks:[],job:"",track:"school",stage:0,pp:0,
+function newRun(seed,name,hist){
+  const s={v:4,goals:[],goalsDone:{},streak:0,seed:seed|0,name:"",age:17,origin:"",edu:"",traits:[],perks:[],job:"",track:"school",stage:0,pp:0,
     stats:{skill:10,rep:10,net:10,fame:0,life:50,burn:0,money:0},assets:0,salary:0,company:"",companyMult:1,boss:"",rival:null,nickname:"",
     flags:{},timers:{childcare:0,care:0,loan:0},kids:[],mp:0,prog:0,lifeYears:0,burnYears:0,
     counters:{work:0,study:0,network:0,rest:0,fame:0,family:0,invest:0,total:0,jobChanges:0,yearsAtStage:0,maxStay:0,rejections:0,founded:0,tenure:0},
@@ -46,6 +46,7 @@ function newRun(seed,name){
     leaveNext:false,onLeave:false,ending:null,news:"",firstCompany:"",perkOffer:null,nextPerk:24,studied:false,hist:[],marks:[],flashes:[],ffLog:null};
   s.name=name||pick(s,SURNAMES)+pick(s,GIVEN);
   s.age=ri(s,17,20);
+  s.born=ri(s,1975,2025)-s.age;
   const o=wpick(s,ORIGINS,x=>x.w); s.origin=o.id;
   if(s.age<20){ s.edu=wpick(s,["gen","voc"],k=>o.hs[k]); s.gradAge=20; }
   else{
@@ -55,7 +56,7 @@ function newRun(seed,name){
     else{ s.edu=wpick(s,["gen","voc"],k=>o.hs[k]); s.track="rest"; }
   }
   s.traits=[pick(s,TRAITS_GOOD).id,pick(s,TRAITS_BAD).id];
-  const ids=Object.keys(JOBS);
+  const ids=Object.keys(JOBS).filter(k=>jobOpen(k,yearOf(s)));
   s.job=rnd(s)<0.1?pick(s,ids):wpick(s,ids,k=>JOBS[k].eduW[s.edu]);
   if(JOBS[s.job].needUniv){ if(s.age>=20&&s.edu!=="univ") s.job=pick(s,ids.filter(k=>!JOBS[k].needUniv)); else if(s.edu==="univ") s.gradAge=26; }
   for(const k in o.fx) s.stats[k]+=o.fx[k];
@@ -63,9 +64,60 @@ function newRun(seed,name){
   if(s.track==="school"){ if(s.edu==="univ"||s.edu==="college") resumeAdd(s,EDU[s.edu]+" 입학"); else resumeAdd(s,EDU[s.edu]+" 재학"); }
   else resumeAdd(s,EDU[s.edu]+" 졸업");
   { const pool=GOALS.map(g=>g.id); for(let i=0;i<3;i++){ const g=pick(s,pool); pool.splice(pool.indexOf(g),1); s.goals.push(g); } }
+  s.ghosts=buildGhosts(s,hist||[]);
   clampStats(s); cardIssue(s);
   return s;
 }
+/* ---- 10판: 연도와 시대 ---- */
+function yearOf(s){ return (s.born==null?1985:s.born)+s.age; }
+function jobOpen(k,y){ return !JOBS[k].open||y>=JOBS[k].open; }
+function fixedEra(x){ return typeof x==="number"?FIXED_ERAS.find(e=>x>=e.from&&x<=e.to):FIXED_ERAS.find(e=>e.id===x); }
+function eraDef(id){ return ERAS.find(e=>e.id===id)||FIXED_ERAS.find(e=>e.id===id); }
+function eraKind(s){ if(s.era){ const e=eraDef(s.era); if(e) return e.kind||e.id; } const f=s.fixed&&fixedEra(s.fixed); return f&&f.kind||null; }
+function eraNow(s){ return s.era?eraDef(s.era):s.fixed?fixedEra(s.fixed):null; }
+function yearText(s,age){ return (yearOf(s)-s.age+age)+"년("+age+"세)"; }
+/* ---- 10판: 지난 인생의 회사 ---- */
+function buildGhosts(s,hist){
+  const out=[];
+  for(const r of hist){
+    if(!r||!r.firm||r.born==null||!r.firm.name) continue;
+    const g={name:r.name,co:r.firm.name,job:r.firm.job,born:r.born,from:r.firm.from,to:r.firm.to==null?null:r.firm.to,top:r.firm.top||1,mode:null,used:false};
+    if(g.top>=5){
+      if(rnd(s)<0.4){ const x=rnd(s); g.mode=x<0.4?"emp":x<0.7?"comp":"light"; if(g.mode!=="light"&&g.job!==s.job) g.mode="light"; if(g.mode==="light"&&rnd(s)<1/3) g.mode="fall"; }
+      else g.mode="off";
+    }
+    out.push(g);
+  }
+  return out.slice(0,12);
+}
+function ghostState(g,y){
+  if(g.top>=5) return "big";
+  if(y>=g.from&&(g.to==null||y<=g.to)) return "now";
+  if(g.to!=null&&y>g.to) return "past";
+  if(y<g.from&&y>=g.born+5&&y<=g.born+12) return "kid";
+  return "none";
+}
+function ghostFor(s,kind){
+  const gs=s.ghosts||[], y=yearOf(s);
+  for(let i=0;i<gs.length;i++){ const g=gs[i], st=ghostState(g,y);
+    if(kind==="rival"&&g.job===s.job&&g.co!==s.company&&(st==="now"||(st==="big"&&g.mode==="comp"))) return i;
+    if(kind==="news"&&st==="big"&&g.mode==="light") return i;
+    if(kind==="fall"&&st==="big"&&g.mode==="fall") return i;
+    if(kind==="past"&&st==="past") return i;
+    if(kind==="kid"&&st==="kid") return i;
+  }
+  return -1;
+}
+function ghostNow(s){ const i=s.gbind&&s.current!=null?s.gbind[s.current]:null; return (i!=null&&s.ghosts&&s.ghosts[i])||{co:"",name:""}; }
+function ghostHire(s){
+  const gs=s.ghosts||[], y=yearOf(s);
+  for(const g of gs){ if(g.job!==s.job||g.co===s.company) continue; const st=ghostState(g,y);
+    if(st==="big"&&g.mode==="emp"&&!g.used) return g;
+    if(st==="now"&&rnd(s)<0.25) return g; }
+  return null;
+}
+function ghostJoined(s,g){ g.used=true; s.ghostCo=g.co; logAdd(s,g.co+" 대표는 "+g.name+". 처음 보는데 낯이 익다."); mark(s,"job","지난 인생의 회사 "+g.co); }
+function firmEnd(s,status){ if(s.firm&&s.firm.status==="open"){ s.firm.status=status; if(status==="closed") s.firm.to=yearOf(s); } }
 function origin(s){ return ORIGINS.find(o=>o.id===s.origin); }
 function addBurn(s,x,fromCard){
   if(x>0){ if(s.origin==="working") x*=0.9; if(fromCard&&has(s,"glass")) x*=1.5; }
@@ -89,8 +141,12 @@ function slotNotes(s){
 }
 function beginYear(s){
   s.yearDone=false; s.yearPerf=0; s.freeWork=0; s.result=null; s.queue=[]; s.current=null; s.news=""; s.studied=false;
+  const fx=fixedEra(yearOf(s));
+  if((fx?fx.id:null)!==s.fixed){ s.fixed=fx?fx.id:null; if(fx){ s.news=fx.text; logAdd(s,"뉴스: "+fx.text); } }
+  if(fx&&fx.strong){ s.era=null; s.eraLeft=0; s.eraWait=Math.max(s.eraWait,2); }
+  else{
   if(s.eraLeft>0){ s.eraLeft--; if(s.eraLeft===0) s.era=null; }
-  if(!s.era){ s.eraWait--; if(s.eraWait<=0){ const e=pick(s,ERAS); s.era=e.id; s.eraLeft=2; s.eraWait=ri(s,4,7); s.news=e.text; logAdd(s,"뉴스: "+e.text); } }
+  if(!s.era&&!s.news){ s.eraWait--; if(s.eraWait<=0){ const e=pick(s,ERAS); s.era=e.id; s.eraLeft=2; s.eraWait=ri(s,4,7); s.news=e.text; logAdd(s,"뉴스: "+e.text); } } }
   s.onLeave=false;
   if(s.leaveNext){ s.leaveNext=false; s.onLeave=true; s.slots=0; }
   else s.slots=slotsOf(s);
@@ -120,7 +176,7 @@ function commitAlloc(s,alloc){
   for(let i=0;i<n("invest");i++){
     if(s.stats.money<500) break;
     const stake=Math.max(500,Math.round(s.stats.money*0.25));
-    let r=rnd(s); if(has(s,"gullible")) r-=0.1; if(has(s,"lucky")) r+=0.04; if(s.era==="recession") r-=0.12; if(s.era==="bubble") r+=0.06;
+    let r=rnd(s); if(has(s,"gullible")) r-=0.1; if(has(s,"lucky")) r+=0.04; if(eraKind(s)==="recession") r-=0.12; if(eraKind(s)==="bubble") r+=0.06;
     let m=r<0.18?-0.6:r<0.40?-0.2:r<0.70?0.15:r<0.90?0.4:r<0.98?1.2:4;
     if(m>0&&perk(s,"compound")) m*=1.25;
     const d=Math.round(stake*m); s.stats.money+=d;
@@ -138,7 +194,9 @@ function matches(s,w){
   if(w.stage){ if(s.track==="free"){ if(w.track==="career"||w.track==="founder") return false; } else if(s.stage<w.stage[0]||s.stage>w.stage[1]) return false; }
   if(w.age&&(s.age<w.age[0]||s.age>w.age[1])) return false;
   if(w.origin&&w.origin!==s.origin) return false;
-  if(w.era&&w.era!==s.era) return false;
+  if(w.era&&w.era!==s.era&&w.era!==s.fixed&&w.era!==eraKind(s)) return false;
+  if(w.year){ const y=yearOf(s); if(y<w.year[0]||y>w.year[1]) return false; }
+  if(w.ghost&&ghostFor(s,w.ghost)<0) return false;
   if(w.flag) for(const f of [].concat(w.flag)) if(!s.flags[f]) return false;
   if(w.noflag) for(const f of [].concat(w.noflag)) if(s.flags[f]) return false;
   if(w.hasRival&&!s.rival) return false;
@@ -167,7 +225,7 @@ function buildQueue(s){
   }
   const pool=CARDS.filter(c=>!c.required&&matches(s,c.when)&&!(c.once&&s.seen[c.id]!=null)&&!(s.seen[c.id]!=null&&s.age-s.seen[c.id]<(c.cd||7)));
   const r=rnd(s); let cnt=r<0.12?0:r<0.62?1:r<0.94?2:3; if(s.track==="school"||s.track==="rest") cnt=Math.min(cnt,1);
-  for(let i=0;i<cnt&&pool.length;i++){ const c=wpick(s,pool,x=>x.w||5); pool.splice(pool.indexOf(c),1); q.push(c.id); }
+  for(let i=0;i<cnt&&pool.length;i++){ const c=wpick(s,pool,x=>x.w||5); pool.splice(pool.indexOf(c),1); q.push(c.id); if(c.when&&c.when.ghost){ s.gbind=s.gbind||{}; s.gbind[c.id]=ghostFor(s,c.when.ghost); } }
   s.queue=q;
 }
 function nextEvent(s){
@@ -180,12 +238,12 @@ function peakName(s){ return s.track==="founder"?job(s).peaks.biz:job(s).peaks.o
 function fill(s,t){
   return String(t).replace(/\{rival\}/g,s.rival?s.rival.name:"동기").replace(/\{jobname\}/g,job(s).name)
     .replace(/\{peakname\}/g,peakName(s)).replace(/\{lastpeak\}/g,s.lastPeak||"정점").replace(/\{bossname\}/g,s.boss?BOSSES[s.boss].name:"")
-    .replace(/\{company\}/g,s.company).replace(/\{cost\}/g,won(job(s).cost));
+    .replace(/\{company\}/g,s.company).replace(/\{gco\}/g,ghostNow(s).co).replace(/\{gname\}/g,ghostNow(s).name).replace(/\{cost\}/g,won(job(s).cost));
 }
 function choiceChance(s,ch){
   if(ch.chance==null) return null;
   let p=ch.chance;
-  if(ch.chanceFn==="apply"){ p=30+(s.stats.skill-25)*1.2+job(s).eduBonus[s.edu]+s.stats.net/5+(s.everJoined?s.careerStage*6:0)-Math.max(0,s.age-45)*2; if(s.era==="recession") p-=15; if(s.era==="boom") p+=10; }
+  if(ch.chanceFn==="apply"){ p=30+(s.stats.skill-25)*1.2+job(s).eduBonus[s.edu]+s.stats.net/5+(s.everJoined?s.careerStage*6:0)-Math.max(0,s.age-45)*2; if(eraKind(s)==="recession") p-=15; if(eraKind(s)==="boom") p+=10; }
   else if(ch.chanceFn==="peak"){ p=28+(s.stats.rep-64)*0.8+(s.stats.net-70)*0.5+(perk(s,"politics")?10:0); }
   else if(ch.chanceFn==="layoff"){ p=40+s.stats.rep/3+s.stage*4+(perk(s,"crisis")?25:0)-Math.max(0,s.age-45); }
   else if(ch.chanceStat) p+=(s.stats[ch.chanceStat]-50)*0.5;
@@ -249,12 +307,14 @@ function join(s,tier){
   const stage=s.everJoined?Math.max(1,Math.min(5,s.careerStage)):1;
   if(s.everJoined) s.counters.jobChanges++;
   let c=pick(s,tier==="big"?j.big:j.small); if(c===s.company) c=pick(s,tier==="big"?j.big:j.small);
-  s.company=c; s.companyMult=tier==="big"?1.2:0.9; s.track="career"; s.stage=stage; s.pp=0; s.counters.yearsAtStage=0; s.counters.tenure=0;
+  const gh=ghostHire(s); if(gh){ c=gh.co; s.ghostCo=gh.co; }
+  s.company=c; s.companyMult=gh?(gh.top>=4?1.2:0.9):tier==="big"?1.2:0.9; s.track="career"; s.stage=stage; s.pp=0; s.counters.yearsAtStage=0; s.counters.tenure=0;
   s.salary=Math.round(RULES.salary[stage]*j.rate*s.companyMult);
   makeBoss(s);
   if(!s.everJoined){ s.everJoined=true; s.firstCompany=c; s.rival={name:pick(s,SURNAMES)+pick(s,GIVEN),stage:1,pp:0,like:3,status:"same"}; if(s.rival.name===s.name) s.rival.name=pick(s,SURNAMES)+pick(s,GIVEN); }
   else if(s.rival&&s.rival.status==="same") s.rival.status="other";
   resumeAdd(s,c+" 입사 ("+j.titles[stage]+")"); cardIssue(s); mark(s,"job",c+" 입사");
+  if(gh) ghostJoined(s,gh);
 }
 function found(s,startStage,free,label){
   const j=job(s);
@@ -262,6 +322,7 @@ function found(s,startStage,free,label){
   if(!free) s.stats.money-=j.cost;
   s.track="founder"; s.stage=startStage; s.pp=0; s.counters.yearsAtStage=0; s.counters.founded++; s.boss=""; s.salary=0; s.counters.tenure=0;
   s.company=label||(s.name.slice(1)+pick(s,j.mine)); s.companyMult=1; s.flags.founder=true;
+  s.firm={name:s.company,job:s.job,from:yearOf(s),to:null,top:startStage,status:"open"};
   if(s.rival&&s.rival.status==="same") s.rival.status="other";
   resumeAdd(s,s.company+" 창업"); cardIssue(s); mark(s,"biz",s.company+" 창업"); flash(s,"found",s.company,"대표 "+s.name+". 오늘부터 월급을 주는 쪽이다.");
 }
@@ -275,14 +336,14 @@ function doAct(s,a){
   else if(a==="join_big") join(s,"big");
   else if(a==="join_small") join(s,"small");
   else if(a==="apply_fail"){ if(s.track==="school") resumeAdd(s,EDU[s.edu]+" 졸업"); s.track="rest"; s.counters.rejections++; cardIssue(s); }
-  else if(a==="switch_job"){ const pool=Object.keys(JOBS).filter(k=>k!==s.job&&!JOBS[k].needUniv), offer=[]; while(offer.length<3&&pool.length){ const k=pick(s,pool); pool.splice(pool.indexOf(k),1); offer.push(k); } s.switchOffer=offer; s.queue.unshift("switch_pick"); }
+  else if(a==="switch_job"){ const pool=Object.keys(JOBS).filter(k=>k!==s.job&&!JOBS[k].needUniv&&jobOpen(k,yearOf(s))), offer=[]; while(offer.length<3&&pool.length){ const k=pick(s,pool); pool.splice(pool.indexOf(k),1); offer.push(k); } s.switchOffer=offer; s.queue.unshift("switch_pick"); }
   else if(a.indexOf("switch_to:")===0){ s.job=a.slice(10); if(s.everJoined){ s.careerStage=Math.max(1,s.careerStage-1); s.stats.skill*=0.6; } join(s,"small"); s.switchOffer=null; s.pendingText=JOBS[s.job].name+" 분야에서 다시 시작한다."; }
   else if(a==="retire_self"){ s.ending="self"; logAdd(s,"스스로 자리에서 내려왔다"); }
-  else if(a==="close_biz"){ resumeAdd(s,s.company+" 정리"); mark(s,"bad",s.company+" 정리"); if(s.stats.money<0) s.stats.money=Math.round(s.stats.money*0.5); s.track="rest"; s.stage=0; s.careerStage=Math.max(1,s.prevCareerStage||1); cardIssue(s); offerRetire(s); }
+  else if(a==="close_biz"){ firmEnd(s,"closed"); resumeAdd(s,s.company+" 정리"); mark(s,"bad",s.company+" 정리"); if(s.stats.money<0) s.stats.money=Math.round(s.stats.money*0.5); s.track="rest"; s.stage=0; s.careerStage=Math.max(1,s.prevCareerStage||1); cardIssue(s); offerRetire(s); }
   else if(a==="poached"){ s.counters.jobChanges++; let c=pick(s,j.big); if(c===s.company) c=pick(s,j.big); s.company=c; s.companyMult=1.2; s.stage=Math.min(5,s.stage+1); s.pp=0; s.salary=Math.max(Math.round(s.salary*1.3),Math.round(RULES.salary[s.stage]*j.rate*1.2)); makeBoss(s); s.counters.yearsAtStage=0; s.counters.tenure=0; resumeAdd(s,c+" 이직 ("+j.titles[s.stage]+")"); cardIssue(s); mark(s,"job",c+" 스카우트"); }
   else if(a==="go_free"){ if(s.track==="school") resumeAdd(s,EDU[s.edu]+" 졸업"); leaveWork(s); s.track="free"; s.stage=0; s.company=""; if(s.rival&&s.rival.status==="same") s.rival.status="other"; resumeAdd(s,j.free+"로 독립"); cardIssue(s); mark(s,"job","프리랜서 독립"); }
   else if(a==="fri_refuse"){ if(s.boss==="overtime"){ s.stats.rep-=4; s.pendingText="월요일 아침, 상사의 표정이 보고서보다 먼저 왔다."; } else s.pendingText="월요일에 해도 아무 일 없었다."; }
-  else if(a==="move"){ s.counters.jobChanges++; let c=pick(s,j.big); if(c===s.company) c=pick(s,j.small); s.company=c; s.companyMult=1.2; s.salary=Math.round(s.salary*1.2); s.pp=0; makeBoss(s); s.counters.yearsAtStage=0; s.counters.tenure=0; if(s.rival&&s.rival.status==="same") s.rival.status="other"; resumeAdd(s,c+" 이직 ("+j.titles[s.stage]+")"); cardIssue(s); }
+  else if(a==="move"){ s.counters.jobChanges++; let c=pick(s,j.big); if(c===s.company) c=pick(s,j.small); const gh=ghostHire(s); if(gh) c=gh.co; s.company=c; s.companyMult=1.2; if(gh) ghostJoined(s,gh); s.salary=Math.round(s.salary*1.2); s.pp=0; makeBoss(s); s.counters.yearsAtStage=0; s.counters.tenure=0; if(s.rival&&s.rival.status==="same") s.rival.status="other"; resumeAdd(s,c+" 이직 ("+j.titles[s.stage]+")"); cardIssue(s); }
   else if(a==="reboss"){ const old=s.boss; makeBoss(s); if(s.boss===old) makeBoss(s); }
   else if(a==="quit_move"){ if(s.track==="career") logAdd(s,s.company+"에 사직서를 냈다"); leaveWork(s); s.track="rest"; s.stage=0; cardIssue(s); offerRetire(s); }
   else if(a==="fired"){ mark(s,"bad","회사를 나옴"); leaveWork(s); s.track="rest"; s.stage=0; s.stats.life-=8; cardIssue(s); }
@@ -298,8 +359,8 @@ function doAct(s,a){
   else if(a==="take_invest") s.stats.money+=unit*2;
   else if(a==="mortgage"){ s.stats.money+=Math.round(s.assets*0.6); s.assets=Math.round(s.assets*0.4); }
   else if(a==="loanshark"){ s.stats.money+=Math.round(unit*0.4); s.flags.loanshark=(s.flags.loanshark||0)+Math.round(unit*0.6); }
-  else if(a==="sell"){ s.stats.money+=unit*3; resumeAdd(s,s.company+" 매각"); s.track="career"; s.stage=5; s.pp=0; s.company=pick(s,j.big); s.companyMult=1.2; s.salary=Math.round(RULES.salary[5]*j.rate*1.2); makeBoss(s); s.counters.yearsAtStage=0; s.counters.tenure=0; resumeAdd(s,s.company+" 합류 ("+j.titles[5]+")"); cardIssue(s); offerRetire(s); }
-  else if(a==="peak"){ s.stage=6; s.pp=0; if(s.track==="career") s.salary=Math.round(RULES.salary[6]*j.rate*s.companyMult); resumeAdd(s,titleOf(s)+" 취임"); cardIssue(s); checkPeaks(s); }
+  else if(a==="sell"){ firmEnd(s,"sold"); s.stats.money+=unit*3; resumeAdd(s,s.company+" 매각"); s.track="career"; s.stage=5; s.pp=0; s.company=pick(s,j.big); s.companyMult=1.2; s.salary=Math.round(RULES.salary[5]*j.rate*1.2); makeBoss(s); s.counters.yearsAtStage=0; s.counters.tenure=0; resumeAdd(s,s.company+" 합류 ("+j.titles[5]+")"); cardIssue(s); offerRetire(s); }
+  else if(a==="peak"){ s.stage=6; s.pp=0; if(s.track==="founder"&&s.firm) s.firm.top=6; if(s.track==="career") s.salary=Math.round(RULES.salary[6]*j.rate*s.companyMult); resumeAdd(s,titleOf(s)+" 취임"); cardIssue(s); checkPeaks(s); }
   else if(a==="retire_now") s.ending="clear";
   else if(a==="marry"){ mark(s,"life","결혼"); s.flags.married=true; delete s.flags.partner; delete s.flags.divorced; logAdd(s,"결혼했다"); }
   else if(a==="divorce"){ mark(s,"bad","이혼"); delete s.flags.married; s.flags.divorced=true; s.stats.life-=25; if(s.stats.money>0) s.stats.money=Math.round(s.stats.money/2); s.assets=Math.round(s.assets/2); }
@@ -318,7 +379,8 @@ function promoNeed(s){ return RULES.promo[s.stage]; }
 function promoMin(s){ if(s.track==="founder") return RULES.bizNeed[s.stage]||{}; const p=promoNeed(s); return p?p.min:{}; }
 function promoLack(s){ const m=promoMin(s), l=[]; for(const k in m) if(s.stats[k]<m[k]) l.push(STAT[k]+" "+m[k]); if(s.track==="founder"&&s.stage<6&&s.stats.money<RULES.profitUnit[s.stage]*0.5) l.push("현금 "+won(RULES.profitUnit[s.stage]*0.5)); return l; }
 function promoReady(s){ const p=promoNeed(s); if(!p||s.pp<p.pp) return false; return promoLack(s).length===0; }
-function eraMult(s){ if(!s.era) return 1; const er=ERAS.find(e=>e.id===s.era); let m=er.perf[s.job]; if(m==null) m=er.def==null?1:er.def; return m<1&&perk(s,"crisis")?1:m; }
+function eraOne(er,s){ if(!er) return 1; let m=er.perf[s.job]; if(m==null) m=er.def==null?1:er.def; return m; }
+function eraMult(s){ let m=eraOne(s.era&&eraDef(s.era),s)*eraOne(s.fixed&&fixedEra(s.fixed),s); return m<1&&perk(s,"crisis")?1:m; }
 function won(n){ const a=Math.abs(Math.round(n)), sign=n<0?"-":""; if(a>=10000){ const e=Math.floor(a/10000), m=a%10000; return sign+e.toLocaleString("ko-KR")+"억"+(m?" "+m.toLocaleString("ko-KR")+"만":"")+" 원"; } return sign+a.toLocaleString("ko-KR")+"만 원"; }
 function ranksNow(s){
   const r={org:0,craft:0,biz:0,fame:0,wealth:0,life:0}, nw=networth(s);
@@ -377,7 +439,7 @@ function yearEnd(s){
     perf=Math.round(perf);
     const g=RULES.grade.find(x=>perf>=x[1]); sum.grade=g[0]; sum.perf=perf;
     if(s.stage<6) s.pp+=g[2]; st.rep+=g[4];
-    if(s.era!=="recession") s.salary=Math.round(s.salary*(1+g[3]/100));
+    if(eraKind(s)!=="recession") s.salary=Math.round(s.salary*(1+g[3]/100));
     const sv=Math.round(s.salary*rate); st.money+=sv;
     push("연봉 "+won(s.salary)+", 저축 "+won(sv));
     if(s.boss==="mentor") addSkill(s,2);
@@ -402,7 +464,7 @@ function yearEnd(s){
   else if(s.track==="rest"){ st.money-=400; }
   if(kidCost&&s.track!=="school"){ st.money-=kidCost; }
   if(s.timers.loan>s.age){ st.money-=800; s.assets+=800; }
-  if(s.assets>0) s.assets=Math.round(s.assets*(s.era==="recession"?0.96:s.era==="bubble"?1.09:1.035));
+  if(s.assets>0) s.assets=Math.round(s.assets*(eraKind(s)==="recession"?0.96:eraKind(s)==="bubble"?1.09:1.035));
   if(s.flags.loanshark){ st.money-=s.flags.loanshark; push("급전 이자까지 "+won(s.flags.loanshark)+"을 갚았다."); delete s.flags.loanshark; }
   /* 대표작 */
   if(s.prog>=4){
@@ -440,7 +502,7 @@ function yearEnd(s){
         ok=rnd(s)*100<p;
         if(!ok){ s.pp=Math.floor(need/2); logAdd(s,"승진 심사에서 누락됐다",true); push("승진 심사 누락. 자리는 하나였다."+(rv?" 동기 "+s.rival.name+"이 먼저 올라갔다.":"")); if(rv){ s.rival.stage++; s.rival.pp=0; } flash(s,"miss","승진 누락",rv?"동기 "+s.rival.name+"이 그 자리에 갔다. 승진 점수가 절반으로 줄었다.":"자리는 하나였다. 승진 점수가 절반으로 줄었다."); }
       } else { st.money-=Math.round(RULES.profitUnit[s.stage]*0.3); }
-      if(ok){ s.stage++; s.pp=0; c.yearsAtStage=-1;
+      if(ok){ s.stage++; s.pp=0; c.yearsAtStage=-1; if(s.track==="founder"&&s.firm) s.firm.top=Math.max(s.firm.top,s.stage);
         if(s.track==="career") s.salary=Math.max(Math.round(s.salary*1.1),Math.round(RULES.salary[s.stage]*j.rate*s.companyMult));
         sum.promo=titleOf(s); resumeAdd(s,(s.track==="career"?titleOf(s)+" 승진":"회사 성장: "+titleOf(s))); logAdd(s,titleOf(s)+(s.track==="career"?" 승진":" 단계로 성장")); cardIssue(s); mark(s,"up",titleOf(s)); if(s.stage<6) flash(s,"promo",titleOf(s),s.track==="career"?s.company:"회사가 한 단계 컸다"); }
     } else if(s.pp>=need){ push((s.track==="career"?"승진":"성장")+" 점수는 찼다. 부족한 것: "+promoLack(s).join(", ")); }
@@ -451,7 +513,7 @@ function yearEnd(s){
   /* 창업 실패와 파산 */
   if(s.track==="founder"&&st.money<-Math.max(6000,RULES.profitUnit[s.stage])){
     if(s.flags.closed_once){ s.ending="bankrupt"; }
-    else{ s.flags.closed_once=true; logAdd(s,s.company+" 폐업. 간판을 직접 내렸다",true); mark(s,"bad",s.company+" 폐업"); flash(s,"closed",s.company+" 폐업","빚을 정리하고 다시 구직한다. 재기는 한 번뿐이다."); resumeAdd(s,s.company+" 정리"); push(s.company+" 폐업. 빚을 정리하고 다시 구직한다. 재기는 한 번뿐이다.");
+    else{ firmEnd(s,"closed"); s.flags.closed_once=true; logAdd(s,s.company+" 폐업. 간판을 직접 내렸다",true); mark(s,"bad",s.company+" 폐업"); flash(s,"closed",s.company+" 폐업","빚을 정리하고 다시 구직한다. 재기는 한 번뿐이다."); resumeAdd(s,s.company+" 정리"); push(s.company+" 폐업. 빚을 정리하고 다시 구직한다. 재기는 한 번뿐이다.");
       s.track="rest"; s.stage=0; st.money=-1000; st.life-=10; s.careerStage=Math.max(1,s.prevCareerStage||1); cardIssue(s); }
   }
   if(s.track!=="founder"&&networth(s)<-20000) s.ending="bankrupt";

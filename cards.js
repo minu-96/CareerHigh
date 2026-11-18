@@ -164,9 +164,10 @@ function markSvg(kind,c,paper,initial){
 }
 
 /* 지금 상태에서 명함 정보 */
-function cardInfoOf(s){ return {name:s.name,age:s.age,title:titleOf(s),org:orgOf(s),job:s.job,track:s.track,stage:s.stage,co:s.company,tier:s.track==="career"?(s.companyMult>=1.2?"big":"small"):s.track==="founder"?"own":"",edu:s.edu}; }
+function cardInfoOf(s){ return {name:s.name,age:s.age,title:titleOf(s),org:orgOf(s),job:s.job,track:s.track,stage:s.stage,co:s.company,tier:s.track==="career"?(s.companyMult>=1.2?"big":"small"):s.track==="founder"?"own":"",edu:s.edu,ghost:s.track==="career"&&!!s.company&&s.company===s.ghostCo}; }
 function cardKey(c){
   if(!c.track) return "old|"+c.title+"|"+c.org;
+  if(c.track==="career"&&c.ghost) return "gh|"+c.co+"|"+c.stage;
   if(c.track==="career") return "co|"+c.co+"|"+c.stage;
   if(c.track==="founder") return "own|"+c.job+"|"+c.stage;
   if(c.track==="free") return "free|"+c.job;
@@ -182,6 +183,9 @@ function cardGroups(){
   return g;
 }
 const CARD_DESIGNS=cardGroups().reduce((n,g)=>n+g.keys.length,0);
+/* 10판: 지난 인생의 회사 명함은 도감 433종과 따로 센다 */
+function dexCount(bc){ return Object.keys(bc).filter(k=>k.indexOf("gh|")!==0).length; }
+function ghostDex(bc){ const g={}; for(const k in bc){ if(k.indexOf("gh|")) continue; const p=k.split("|"); (g[p[1]]=g[p[1]]||{})[p[2]]=1; } return g; }
 
 function cardHtml(c,opt){
   opt=opt||{}; const w=opt.w||340, job=JOBS[c.job]||JOBS.dev, st=c.stage||0;
@@ -212,7 +216,7 @@ function cardHtml(c,opt){
     if(st===1) tagline="직접 인쇄한 명함";
     cls="own s"+st;
   } else if(c.track==="career"){
-    const b=BRAND[c.co]||{tpl:"corp",c:"#16213b",mark:"mono",en:(c.co||"").toUpperCase()};
+    const b=c.ghost?{tpl:"corp",c:OWN_COLORS[hashStr(c.co||"")%OWN_COLORS.length],mark:["square","ring","star","arcs","sprout"][hashStr(c.co||"")%5],en:ownEn(c.co||""),tag:"지난 인생이 세운 회사"}:BRAND[c.co]||{tpl:"corp",c:"#16213b",mark:"mono",en:(c.co||"").toUpperCase()};
     tpl=st>=6?"lux":b.tpl; color=b.c; mark=b.mark; coName=c.co; coEn=b.en; tagline=b.tag; titleEn=(EN_TITLE[c.job]||EN_TITLE.dev)[st]||""; title=(CARD_TITLE[c.job]||CARD_TITLE.dev)[st]||title;
     dept=st>=6?"":st===5?HQ[c.job][0]:role[1]; cls="s"+st;
     if(st===1) extra=`<span class="bc-tag">${TRAINEE[c.job]||"수습"}</span>`;

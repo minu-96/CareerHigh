@@ -32,7 +32,7 @@ function archive(){
   if(S.nickname){ const nk=S.nickname.indexOf("만년 ")===0?"만년 ○○":S.nickname; if(!M.nicks[nk]){ M.nicks[nk]=1; finds.push("새 별명: "+S.nickname); } }
   if(!M.origins[S.origin]){ M.origins[S.origin]=1; finds.push("새 출신: "+origin(S).name); }
   for(const id in S.goalsDone) if(!M.goals[id]){ M.goals[id]=1; finds.push("버킷리스트: "+GOALS.find(g=>g.id===id).t); }
-  const nc=(S.cardFinds||[]).length; if(nc) finds.push("새 명함 "+nc+"장 (명함 도감 "+Object.keys(M.bcards).length+"/"+CARD_DESIGNS+")");
+  const nc=(S.cardFinds||[]).length; if(nc) finds.push("새 명함 "+nc+"장 (명함 도감 "+dexCount(M.bcards)+"/"+CARD_DESIGNS+")");
   M.runs++; M.rerolls=Math.min(3,M.rerolls+1); f.finds=finds; saveMeta();
   const h=store.get("careerhigh.history")||[];
   let bp="org",bv=-1; for(const p in S.best) if(S.best[p]>bv){ bv=S.best[p]; bp=p; }
@@ -138,7 +138,7 @@ function resumeRows(s){
   let out="", prev=null;
   for(const r of s.resume){
     if(prev!=null&&r.age-prev>=3) out+=`<tr class="gap-row"><th class="num">&nbsp;</th><td>기록 없는 ${r.age-prev-1}년 <button data-act="gap" data-age="${prev+1}">수첩에서 보기</button></td></tr>`;
-    out+=`<tr><th class="num">${r.age}세</th><td>${esc(r.text)}</td></tr>`; prev=r.age;
+    out+=`<tr><th class="num">${s.born!=null?`<small class="yr">${s.born+r.age}</small>`:""}${r.age}세</th><td>${esc(r.text)}</td></tr>`; prev=r.age;
   }
   if(prev!=null&&s.age-prev>=3) out+=`<tr class="gap-row"><th class="num">&nbsp;</th><td>기록 없는 ${s.age-prev}년 <button data-act="gap" data-age="${prev+1}">수첩에서 보기</button></td></tr>`;
   return out;
@@ -189,6 +189,7 @@ function city(o){
   const r=o.ranks, ps=Object.keys(PATHS);
   ps.forEach((p,i)=>{
     const x=TX.at(i), w=58, fl=24, base=232, rank=Math.max(0,r[p]||0), peaked=!!(o.peaks&&o.peaks[p]), fresh=!!(o.fresh&&o.fresh[p]);
+    if(o.fade) g+=`<g opacity=".38">`;
     const tag=o.interactive?`g class="tw${o.sel===p?" sel":""}" data-act="path" data-p="${p}" tabindex="0" role="button" aria-label="${PATHS[p]}의 길 ${rank}층${peaked?", 정점":""}"`:`g`;
     g+=`<${tag}><rect class="hit" x="${x-4}" y="${base-5*fl-30}" width="${w+8}" height="${5*fl+30}" fill="transparent" rx="4"/>`;
     for(let f=0;f<5;f++){ const y=base-(f+1)*fl;
@@ -201,7 +202,7 @@ function city(o){
       else g+=`<rect x="${x+.5}" y="${y+.5}" width="${w-1}" height="${fl-1}" fill="none" stroke="#ffffff" stroke-opacity=".55" stroke-dasharray="3 3"/>`;
     }
     if(peaked) g+=`<line x1="${x+w/2}" y1="${base-5*fl}" x2="${x+w/2}" y2="${base-5*fl-24}" stroke="#d33a22" stroke-width="2"/><path class="flag" d="M${x+w/2} ${base-5*fl-24}h16l-5 5 5 5h-16z" fill="#d33a22"/>`;
-    g+=`<text class="tw-label" x="${x+w/2}" y="253" text-anchor="middle">${PATHS[p]}</text></${o.interactive?"g":"g"}>`;
+    g+=`${o.fade?"":`<text class="tw-label" x="${x+w/2}" y="253" text-anchor="middle">${PATHS[p]}</text>`}</${o.interactive?"g":"g"}>`+(o.fade?`</g>`:"");
   });
   g+=`<rect x="-1400" y="232" width="3400" height="300" fill="#232a3a"/><rect x="-1400" y="232" width="3400" height="3" fill="#16213b"/>`;
   for(let i=0;i<64;i++) g+=`<rect x="${-1400+i*50}" y="264" width="24" height="2" fill="#ffe14d" opacity=".55"/>`;
@@ -225,7 +226,7 @@ function hud(s){
   const done=Object.keys(s.goalsDone||{}).length;
   return `<header class="hud" style="--track:${trackColor(s)}">
     <div class="who-wrap"><button class="hud-card ${cardFlip?"flip":""}" data-act="card" data-i="cur" aria-label="지금 명함 크게 보기">${cardHtml(cardInfoOf(s),{w:window.innerWidth<520?78:96})}</button><div class="who" data-act="card" data-i="cur" role="button" tabindex="0" aria-label="지금 명함 크게 보기"><b>${esc(s.name)}</b><span>${esc(cardTitleOf(s))}${s.track==="career"||s.track==="founder"?", "+esc(s.company):""}</span>${s.nickname?`<span class="nick">${esc(s.nickname)}</span>`:""}</div></div>
-    <div class="clock"><div class="age num"><span class="${tick?"tick":""}">${s.age}</span><small>세</small></div>${hudRuler(s)}</div>
+    <div class="clock"><div class="age num"><span class="${tick?"tick":""}">${s.age}</span><small>세</small><em class="yr">${yearOf(s)}</em></div>${hudRuler(s)}</div>
     <div class="hud-btns"><button class="hbtn" data-act="rec" data-tab="status">기록</button><button class="hbtn" data-act="mute" aria-label="${M.mute?"소리 켜기":"소리 끄기"}">${M.mute?"소리 끔":"소리 켬"}</button></div>
   </header>`;
 }
@@ -301,7 +302,7 @@ function desk(s){
   else if(notes.length) warn="칸이 줄었다: "+notes.join(", ");
   const canResign=(s.track==="career"||s.track==="free"||s.track==="founder")&&s.stage<6&&!s.onLeave;
   return `<section class="desk">
-    <div class="desk-head"><h2 class="disp">${s.age}세의 한 해</h2><span class="aside">${s.onLeave?"쉬는 해":"행동력 "+s.slots+"칸"} <button class="bucket-chip" data-act="rec" data-tab="status">버킷리스트 ${Object.keys(s.goalsDone||{}).length}/3</button></span></div>
+    <div class="desk-head"><h2 class="disp">${yearOf(s)}년, ${s.age}세의 한 해</h2><span class="aside">${s.onLeave?"쉬는 해":"행동력 "+s.slots+"칸"} <button class="bucket-chip" data-act="rec" data-tab="status">버킷리스트 ${Object.keys(s.goalsDone||{}).length}/3</button></span></div>
     ${planning?toastBand():""}
     ${planning?upcomingHtml(s,1).replace('class="upnext"','class="upnext desk-up"'):""}
     ${warn?`<p class="warnline">${esc(warn)}</p>`:""}
@@ -323,7 +324,7 @@ function desk(s){
   </section>`;
 }
 function vGame(){
-  return `<div class="game">${hud(S)}<div class="scene">${sceneFor(S)}${S.era?`<div class="ticker"><span><b>${S.news?"속보":"요즘"}</b>${esc(ERAS.find(e=>e.id===S.era).text)}</span></div>`:""}${toastHtml()}${tipHtml()}</div>${statbar(S)}${desk(S)}${rail(S)}</div>`;
+  return `<div class="game">${hud(S)}<div class="scene">${sceneFor(S)}${eraNow(S)?`<div class="ticker"><span><b>${S.news?"속보":"요즘"}</b>${esc(S.news||eraNow(S).text)}</span></div>`:""}${toastHtml()}${tipHtml()}</div>${statbar(S)}${desk(S)}${rail(S)}</div>`;
 }
 function vEventModal(){
   const card=cardById(S.current), cat=catOf(card);
@@ -431,10 +432,10 @@ function vCollection(){
       ${jobs.map(jb=>`<span class="sg-j">${JOBS[jb].name.split("·")[0].split(" ")[0]}</span>`+paths.map(p=>{ const a=M.stamps[jb+"|"+p]; return `<span class="sg-c ${a?"on":""}" style="--pc:${PCOLOR[p]}" title="${JOBS[jb].name}, ${PATHS[p]}${a?", "+a+"세에 달성":""}">${a?"정점":""}</span>`; }).join("")).join("")}</div>
     ${bar("정점 도장",got,jobs.length*paths.length)}${bar("엔딩",Object.keys(M.endings).length,ENDINGS.length)}${bar("별명",Object.keys(M.nicks).length,NICKS.length)}${bar("사건 카드",Math.min(CARD_TOTAL,Object.keys(M.cards).length),CARD_TOTAL)}${bar("출신",Object.keys(M.origins).length,ORIGINS.length)}${bar("버킷리스트",Object.keys(M.goals).length,GOALS.length)}
     <p class="small"><span class="hl">${esc(nextHint())}</span></p></div>
-    <div class="sheet"><div class="sheet-head"><h2 class="disp">명함 도감</h2><span class="aside">${Object.keys(M.bcards).length}/${CARD_DESIGNS}</span></div>
+    <div class="sheet"><div class="sheet-head"><h2 class="disp">명함 도감</h2><span class="aside">${dexCount(M.bcards)}/${CARD_DESIGNS}</span></div>
       <p class="small muted">회사마다, 직급마다 명함이 다르다. 칸 하나가 직급 하나다.</p>
       <div class="dex">${cardGroups().map((g,gi,arr)=>{ const head=(gi===0||(arr[gi-1].job!==g.job)||g.own&&!arr[gi-1].own||g.free||g.misc)&&!(g.own&&arr[gi-1].own)?`<p class="dex-h">${g.own?"내 회사":g.free?"회사 밖":g.misc?"그 밖":JOBS[g.job].name}</p>`:""; const col=g.brand?g.brand.c:"var(--ink)";
-        return head+`<div class="dex-row" style="--pc:${col}">${g.brand?markSvg(g.brand.mark,col,"#fff"):markSvg("mono",col,"#fff",g.label.charAt(0))}<span>${esc(g.label)}</span><span class="dex-dots">${g.keys.map(k=>`<i class="${M.bcards[k]?"on":""}"></i>`).join("")}</span></div>`; }).join("")}</div></div>
+        return head+`<div class="dex-row" style="--pc:${col}">${g.brand?markSvg(g.brand.mark,col,"#fff"):markSvg("mono",col,"#fff",g.label.charAt(0))}<span>${esc(g.label)}</span><span class="dex-dots">${g.keys.map(k=>`<i class="${M.bcards[k]?"on":""}"></i>`).join("")}</span></div>`; }).join("")}${(()=>{ const gd=ghostDex(M.bcards), ks=Object.keys(gd); return ks.length?`<p class="dex-h">지난 인생의 회사</p>`+ks.map(co=>{ const col=OWN_COLORS[hashStr(co)%OWN_COLORS.length]; return `<div class="dex-row" style="--pc:${col}">${markSvg(["square","ring","star","arcs","sprout"][hashStr(co)%5],col,"#fff")}<span>${esc(co)}</span><span class="dex-dots">${[1,2,3,4,5,6].map(n=>`<i class="${gd[co][n]?"on":""}"></i>`).join("")}</span></div>`; }).join(""):""; })()}</div></div>
     ${hist.length?`<div class="sheet"><div class="sheet-head"><h2 class="disp">지난 인생들</h2><span class="aside">${hist.length}명</span></div><p class="small muted">누르면 그 인생의 명함과 요약이 나온다.</p>${residentsBlock(hist,140)}</div>`:""}
   </div></div>`;
 }
@@ -450,7 +451,7 @@ function vTitle(){
       <label class="small muted" for="nm" style="text-align:center">이름 (비워 두면 지어 준다)</label>
       <input type="text" id="nm" maxlength="8" value="${esc(nameDraft)}" autocomplete="off">
       <button class="gbtn" data-act="new">새 인생 시작</button>
-      ${run&&run.v===3&&!run.final?`<button class="gbtn alt" data-act="resume-run">이어하기: ${esc(run.name)}, ${run.age}세</button>`:""}
+      ${run&&(run.v===3||run.v===4)&&!run.final?`<button class="gbtn alt" data-act="resume-run">이어하기: ${esc(run.name)}, ${run.age}세</button>`:""}
       <button class="gbtn alt" data-act="town">커리어 타운 (${getHist().length}명이 산다)</button>
       <div class="title-row"><button class="gbtn alt" data-act="col">수집첩</button><button class="gbtn alt" data-act="mute">${M.mute?"소리 켜기":"소리 끄기"}</button></div>
       <p class="small muted" style="text-align:center">다시 뽑기권 ${M.rerolls}장</p>
@@ -459,7 +460,8 @@ function vTitle(){
 function vDraw(){
   const o=origin(S), tg=TRAITS_GOOD.find(t=>t.id===S.traits[0]), tb=TRAITS_BAD.find(t=>t.id===S.traits[1]);
   const eduTxt=S.track==="rest"?EDU[S.edu]+" 졸업, 바로 일을 구한다":EDU[S.edu]+(S.edu==="univ"||S.edu==="college"?" 입학":" 재학");
-  const rows=[["나이",`${S.age}세`],["출신",`${o.name}<div class="small muted">${o.desc}</div>`],["학력",eduTxt],
+  const fx0=fixedEra(yearOf(S));
+  const rows=[["나이와 해",`${yearOf(S)}년, ${S.age}세${fx0?`<div class="small muted">${fx0.name}의 한가운데</div>`:""}`],["출신",`${o.name}<div class="small muted">${o.desc}</div>`],["학력",eduTxt],
     ["타고난 것",`${tg.name}<div class="small muted">${tg.desc}</div>`],["모자란 것",`${tb.name}<div class="small muted">${tb.desc}</div>`],["하고 싶은 일",job(S).name],
     ["버킷리스트",S.goals.map(id=>esc(GOALS.find(g=>g.id===id).t)).join("<br>")]];
   const last=drawStep>=rows.length-1;
@@ -509,7 +511,11 @@ function makeRecord(s){
   let bp="org",bv=-1; for(const p in s.best) if(s.best[p]>bv){ bv=s.best[p]; bp=p; }
   let card=cardInfoOf(s);
   if(s.track==="rest"||s.track==="school"){ for(let i=s.cards.length-1;i>=0;i--){ const c=s.cards[i]; if(c.track==="career"||c.track==="founder"||c.track==="free"){ card=Object.assign({name:s.name},c); break; } } }
-  return {v:2,name:s.name,age:s.age,jobId:s.job,job:j.name,origin:s.origin,edu:s.edu,nick:s.nickname,path:bp,end:f.hidden||f.title,kind:f.kind,
+  const born=s.born==null?null:s.born, y0=born==null?null:born+(s.resume[0]?s.resume[0].age:s.age);
+  const jobs=[]; for(const c of s.cards){ if(c.track!=="career"||!c.co) continue; const y=born==null?null:born+c.age, l=jobs[jobs.length-1]; if(l&&l.co===c.co) continue; if(l&&l.to==null) l.to=y; jobs.push({co:c.co,job:c.job,from:y,to:null,ghost:!!c.ghost}); }
+  if(jobs.length&&s.track!=="career"){ const l=jobs[jobs.length-1]; if(l.to==null) l.to=born==null?null:born+s.age; }
+  let firm=null; if(s.firm){ firm=Object.assign({},s.firm); firm.top=Math.max(firm.top||1,s.best.biz||0); if(s.track==="founder") firm.status="open"; else if(firm.status==="open") firm.status="left"; }
+  return {v:3,born:born,y0:y0,y1:born==null?null:born+s.age,jobs:jobs,firm:firm,home:s.track==="founder"&&firm?"company":"house",name:s.name,age:s.age,jobId:s.job,job:j.name,origin:s.origin,edu:s.edu,nick:s.nickname,path:bp,end:f.hidden||f.title,kind:f.kind,
     title:s.bestTitle||titleOf(s),verdict:f.verdict,ranks:Object.assign({},f.ranks),peaks:(f.peaks||[]).map(p=>({path:p.path,age:p.age,name:p.name})),
     marks:s.marks.slice(0,40),card:card,cards:s.cards.slice(-12),goals:s.goals.map(id=>({t:GOALS.find(g=>g.id===id).t,done:s.goalsDone[id]})),
     nw:networth(s),shames:(f.shames||[]).map(l=>({age:l.age,text:l.text})),shameN:s.log.filter(l=>l.shame).length,jobChanges:s.counters.jobChanges,
@@ -517,26 +523,28 @@ function makeRecord(s){
     perks:s.perks.map(p=>PERKS.find(x=>x.id===p).name)};
 }
 function lifeStory(r){
-  if(r.v!==2) return [];
+  if(!(r.v>=2)) return [];
+  const Y=a=>r.born!=null?(r.born+a)+"년, ":"";
   const o=ORIGINS.find(x=>x.id===r.origin), out=[], first=r.marks.find(m=>m.k==="job"||m.k==="biz");
-  out.push(`${o?o.name+" 출신. ":""}${josa(EDU[r.edu]||"학교","을","를")} 나왔다.${first?` ${first.age}세에 ${first.t}.`:" 끝내 일자리를 얻지 못했다."}`);
+  out.push(`${o?o.name+" 출신. ":""}${josa(EDU[r.edu]||"학교","을","를")} 나왔다.${r.y0!=null?` ${r.y0}년에 출발했다.`:""}${first?` ${Y(first.age)}${first.age}세에 ${first.t}.`:" 끝내 일자리를 얻지 못했다."}`);
   let s2=`가장 높이 오른 자리는 ${r.title}.`;
   if(first) s2+=r.jobChanges?` 회사는 ${r.jobChanges}번 옮겼다.`:(r.founder?"":" 한 번도 회사를 옮기지 않았다.");
-  if(r.founder) s2+=" 자기 사업을 차려 본 사람이다.";
+  if(r.firm) s2+=` ${r.firm.from}년에 ${r.firm.name}을(를) 차렸고, `+(r.firm.status==="open"?"끝까지 대표였다.":r.firm.status==="sold"?"회사를 팔았다.":r.firm.status==="closed"?`${r.firm.to}년에 문을 닫았다.`:"대표 자리에서 내려왔다.");
+  else if(r.founder) s2+=" 자기 사업을 차려 본 사람이다.";
   out.push(s2);
   const fam=[]; if(r.married) fam.push("결혼했다"); else if(r.divorced) fam.push("결혼했다가 헤어졌다");
   if(r.kids) fam.push(`아이 ${r.kids}명을 키웠다`); if(r.house) fam.push("내 집을 마련했다"); if(r.pet) fam.push("반려동물과 살았다");
   out.push(fam.length?fam.join(", ")+".":"가정은 꾸리지 않았고, 집도 사지 않았다.");
-  if(r.peaks.length) out.push(r.peaks.map(p=>`${p.age}세에 ${p.name}의 자리에 올랐다`).join(". ")+".");
+  if(r.peaks.length) out.push(r.peaks.map(p=>`${Y(p.age)}${p.age}세에 ${p.name}의 자리에 올랐다`).join(". ")+".");
   else if(r.verdict) out.push(r.verdict);
   if(r.shameN) out.push(`이력서에 못 쓴 일이 ${r.shameN}건 있다.`);
-  if(r.kind!=="live") out.push(`${r.age}세, ${r.end}. 남긴 순자산은 ${won(r.nw)}.`);
+  if(r.kind!=="live") out.push(`${Y(r.age)}${r.age}세, ${r.end}. 남긴 순자산은 ${won(r.nw)}.`);
   return out;
 }
 function storyHtml(r){
   const mk={job:"var(--ink)",up:"var(--c-org)",biz:"var(--c-biz)",craft:"var(--c-craft)",peak:"var(--stamp)",life:"var(--c-life)",bad:"var(--muted)"};
   return `${lifeStory(r).map(t=>`<p class="story-p">${esc(t)}</p>`).join("")}
-    ${r.marks&&r.marks.length?`<ol class="timeline">${r.marks.map(m=>`<li style="--mc:${mk[m.k]||"var(--ink)"}"><b class="num">${m.age}세</b><span>${esc(m.t)}</span></li>`).join("")}</ol>`:""}`;
+    ${r.marks&&r.marks.length?`<ol class="timeline">${r.marks.map(m=>`<li style="--mc:${mk[m.k]||"var(--ink)"}"><b class="num">${r.born!=null?`<small>${r.born+m.age}</small> `:""}${m.age}세</b><span>${esc(m.t)}</span></li>`).join("")}</ol>`:""}`;
 }
 function personSvg(r,star){
   const look=JOB_LOOK[r.jobId]||["#4a5568",""], h=hashStr(r.name||"x"), skin=["#f2c9a5","#e8b58a","#f6d7b8"][h%3], hair=["#2a2320","#4a3526","#1d1d24","#6b5a4a","#8f8f97"][(h>>3)%5];
@@ -571,7 +579,7 @@ function vLife(r){
     <span class="age-tag">${r.age}세</span><p class="small muted">${esc(r.job)}${r.nick?`, 별명 ${esc(r.nick)}`:""}</p><h2 class="disp">${esc(r.name)}</h2>
     <p><span class="hl"><b>${esc(r.end)}</b></span></p>
     ${r.card?`<div class="card-stage"><button data-act="life-flip" aria-label="명함 뒤집기">${cardHtml(r.card,{w:w,back:true,flipped:lifeFlip})}</button><p class="card-cap">마지막으로 들고 다닌 명함. 누르면 뒤집힌다.</p></div>`:""}
-    ${r.v===2?`<h3 class="disp life-h">어떻게 살았나</h3>${storyHtml(r)}
+    ${r.v>=2?`<h3 class="disp life-h">어떻게 살았나</h3>${storyHtml(r)}
     <h3 class="disp life-h">여섯 갈래</h3><div class="rankrows">${Object.keys(PATHS).map(p=>`<div class="rankrow" style="--pc:${PCOLOR[p]}"><span>${PATHS[p]}</span><span class="dots5">${dots(p)}</span><span class="muted">${r.ranks[p]?esc(rankNameRec(r,p)):"걷지 않은 길"}</span></div>`).join("")}</div>
     <h3 class="disp life-h">버킷리스트</h3><div class="goals" style="transform:none">${r.goals.map(g=>`<p class="goal ${g.done!=null?"done":""}"><i></i><span>${esc(g.t)}</span>${g.done!=null?`<em>${g.done}세</em>`:""}</p>`).join("")}</div>
     ${r.shames.length?`<h3 class="disp life-h">이력서에 못 쓴 이야기</h3>${r.shames.map(l=>`<p class="nb-line shame" style="line-height:1.3">${l.age}세, ${esc(l.text)}</p>`).join("")}`:""}
@@ -606,17 +614,39 @@ function soloLine(r){
   if(r.shameN>3) c.push("그 일은 무덤까지 가져간다.");
   return c[Math.floor(Math.random()*c.length)];
 }
+/* 10판: 타운의 집과 회사. 끝까지 대표였으면 회사, 아니면 자산의 길 단계에 맞는 집 */
+function homeOf(r){
+  const company=r.home?r.home==="company":!!(r.card&&r.card.tier==="own");
+  if(company){ const fl=Math.max(1,Math.min(6,(r.firm&&r.firm.top)||(r.ranks&&r.ranks.biz)||1)); return {kind:"company",fl:fl,name:(r.firm&&r.firm.name)||(r.card&&r.card.org)||"회사",label:((r.firm&&r.firm.name)||(r.card&&r.card.org)||"회사")+", "+fl+"층"}; }
+  const w=(r.ranks&&r.ranks.wealth)||0, k=w>=5?"mansion":w===4?"detached":w===3?"house":w===2?"apt":"villa";
+  return {kind:k,name:r.name,label:r.name+"의 "+{villa:"빌라",apt:"아파트",house:"주택",detached:"단독주택",mansion:"저택"}[k]};
+}
+function buildingSvg(h){
+  const ink="#16213b", wall="#f3ead9", wall2="#e2d6bf", roof="#b8492f", win="#ffe9a8", W=HEX.wealth, B=HEX.biz;
+  const wins=(x0,y0,cols,rows,dx,dy,w,hh,c)=>{ let s=""; for(let r=0;r<rows;r++) for(let k=0;k<cols;k++) s+=`<rect x="${x0+k*dx}" y="${y0+r*dy}" width="${w}" height="${hh}" fill="${c||win}"/>`; return s; };
+  let vb, g;
+  if(h.kind==="company"){ const fh=11, H=h.fl*fh+10; vb=`0 0 44 ${H}`;
+    g=`<rect x="4" y="10" width="36" height="${H-10}" fill="${ink}"/>`+wins(8,13,4,h.fl,7.6,fh,4.4,6,B)+`<rect x="2" y="2" width="40" height="8" rx="1.5" fill="${B}"/><rect x="18" y="${H-7}" width="8" height="7" fill="#dbe4f5"/>`; }
+  else if(h.kind==="villa"){ vb="0 0 44 34"; g=`<rect x="4" y="6" width="36" height="28" fill="${wall2}"/><rect x="3" y="4" width="38" height="3" fill="${ink}"/>`+wins(8,10,3,2,11,10,6,6)+`<rect x="19" y="27" width="6" height="7" fill="${ink}"/>`; }
+  else if(h.kind==="apt"){ vb="0 0 44 64"; g=`<rect x="9" y="4" width="26" height="60" fill="${wall2}"/><rect x="8" y="2" width="28" height="3" fill="${ink}"/>`+wins(12,8,3,6,7.5,8.6,4.5,5)+`<rect x="19" y="57" width="6" height="7" fill="${ink}"/>`; }
+  else if(h.kind==="house"){ vb="0 0 44 40"; g=`<path d="M2 18L22 3L42 18z" fill="${roof}"/><rect x="6" y="17" width="32" height="23" fill="${wall}"/>`+wins(10,22,2,1,18,0,7,7)+`<rect x="19" y="30" width="6" height="10" fill="${ink}"/>`; }
+  else if(h.kind==="detached"){ vb="0 0 56 42"; g=`<path d="M2 18L20 4L38 18z" fill="${roof}"/><rect x="5" y="17" width="30" height="25" fill="${wall}"/><rect x="35" y="24" width="18" height="18" fill="${wall2}"/><path d="M33 25h22" stroke="${roof}" stroke-width="3"/><rect x="38" y="30" width="12" height="12" fill="#9aa5b8"/>`+wins(9,22,2,1,15,0,7,7)+`<rect x="17" y="32" width="6" height="10" fill="${ink}"/>`; }
+  else { vb="0 0 72 50"; g=`<path d="M10 18L36 3L62 18z" fill="${roof}"/><rect x="2" y="22" width="16" height="28" fill="${wall2}"/><rect x="54" y="22" width="16" height="28" fill="${wall2}"/><rect x="14" y="17" width="44" height="33" fill="${wall}"/>`+wins(18,22,4,2,10,12,5,7)+`<rect x="5" y="28" width="10" height="7" fill="${win}"/><rect x="57" y="28" width="10" height="7" fill="${win}"/><rect x="32" y="40" width="8" height="10" fill="${ink}"/><path d="M14 17h44" stroke="${W}" stroke-width="2"/>`; }
+  return `<svg viewBox="${vb}" aria-hidden="true">${g}</svg>`;
+}
 function vTown(){
   const hist=getHist(), walkers=hist.slice(0,10), best={org:0,craft:0,biz:0,fame:0,wealth:0,life:0}, peaks={};
   for(const r of hist){ if(r.ranks) for(const p in best) best[p]=Math.max(best[p],r.ranks[p]||0); for(const p of (r.peaks||[])) peaks[p.path]=1; }
   const hr=new Date().getHours()+new Date().getMinutes()/60, age=17+Math.max(0,Math.min(1,(hr-6)/15))*48;
-  if(!town||town.n!==walkers.length) town={n:walkers.length,raf:0,last:0,chars:walkers.map((r,i)=>({x:8+((i*37+11)%84),dir:i%2?1:-1,sp:1.800+(hashStr(r.name||"x")%10)*.160,state:"walk",until:0,cool:0,say:"",say2:null}))};
+  const slot=i=>+((i+.5)/Math.max(1,walkers.length)*100).toFixed(2);
+  if(!town||town.n!==walkers.length) town={n:walkers.length,raf:0,last:0,chars:walkers.map((r,i)=>({hx:slot(i),x:slot(i)+((i%2)?3:-3),dir:i%2?1:-1,sp:1.800+(hashStr(r.name||"x")%10)*.160,state:"walk",until:0,cool:0,say:"",say2:null}))};
   return `<div class="town"><header class="hud"><div class="who"><b>커리어 타운</b><span>지금까지 살아 본 ${hist.length}명이 사는 동네</span></div><span></span><div class="hud-btns"><button class="hbtn" data-act="to-title">나가기</button></div></header>
-    <div class="scene town-stage">${city({age:age,vb:"0 -60 600 332",ranks:best,peaks:peaks,label:"지난 인생들이 올린 층이 모인 도시"})}
+    <div class="scene town-stage">${city({age:age,vb:"0 -60 600 332",ranks:best,peaks:peaks,fade:true,label:"지난 인생들이 올린 층이 모인 도시"})}
+      <div class="street" style="--n:${Math.max(3,walkers.length)}">${walkers.map((r,i)=>{ const h=homeOf(r); return `<button class="bld ${h.kind}${walkers.length>5&&i%2?" back":""}${i===0?" first":""}${i===walkers.length-1&&i>0?" last":""}" data-act="life" data-i="${i}" style="left:${slot(i)}%" aria-label="${esc(h.label)}. 인생 요약 보기" title="${esc(h.label)}">${buildingSvg(h)}${h.kind==="company"?`<span class="bsign">${esc(h.name)}</span>`:""}</button>`; }).join("")}</div>
       <div class="walkers">${walkers.map((r,i)=>`<button class="walker" id="wk-${i}" data-act="life" data-i="${i}" style="left:${town.chars[i].x}%;bottom:${4+(i*7)%13}px;z-index:${20-(i*7)%13}" aria-label="${esc(r.name)}, ${esc(r.job)}. 인생 요약 보기"><span class="bub" hidden></span><span class="fig">${personSvg(r,r.peaks&&r.peaks.length)}</span><span class="wname">${esc(r.name)}</span></button>`).join("")}</div>
       ${hist.length?"":`<div class="town-empty"><b class="disp">아직 아무도 살지 않는다</b><span>한 인생을 끝까지 살면 그 사람이 이 동네로 이사 온다.</span></div>`}</div>
     <div class="town-body">
-      ${hist.length?`<p class="small muted">도시의 층은 지금까지의 인생들이 각 길에서 가장 높이 오른 기록이다. 사람을 누르면 그 인생의 명함과 요약이 나온다.</p>${residentsBlock(hist)}`:""}
+      ${hist.length?`<p class="small muted">길가의 건물은 그 사람이 사는 집이나 끝까지 이끈 회사다. 집은 자산의 길, 회사는 창업의 길 단계만큼 크다. 뒤쪽 도시의 층은 지금까지의 인생들이 각 길에서 가장 높이 오른 기록이다. 사람이나 건물을 누르면 그 인생의 명함과 요약이 나온다.</p>${residentsBlock(hist)}`:""}
       <div class="btn-row"><button class="gbtn alt" data-act="col">수집첩</button><button class="gbtn" data-act="again">새 인생 시작</button></div>
     </div></div>`;
 }
@@ -629,7 +659,7 @@ function townStart(){
     if(!stage||view!=="town"||lifeOpen!=null||colOpen){ town.raf=0; return; }
     const dt=Math.min(.1,(now-town.last)/1000); town.last=now; const cs=town.chars;
     for(let i=0;i<cs.length;i++){ const c=cs[i];
-      if(c.state==="walk"){ c.x+=c.dir*c.sp*dt; if(c.x<5){ c.x=5; c.dir=1; } if(c.x>95){ c.x=95; c.dir=-1; }
+      if(c.state==="walk"){ c.x+=c.dir*c.sp*dt; const lo=Math.max(4,(c.hx==null?50:c.hx)-9), hi=Math.min(96,(c.hx==null?50:c.hx)+9); if(c.x<lo){ c.x=lo; c.dir=1; } if(c.x>hi){ c.x=hi; c.dir=-1; }
         if(Math.random()<dt*.060){ c.state="idle"; c.until=now+1400+Math.random()*1800; if(Math.random()<.5){ c.say=soloLine(hist[i]); setBub(i,c.say); } } }
       else{ if(c.say2&&now>c.say2.at){ setBub(c.say2.i,c.say2.t); c.say2=null; }
         if(now>c.until){ c.state="walk"; c.say=""; setBub(i,""); if(Math.random()<.4) c.dir*=-1; } }
@@ -646,7 +676,7 @@ function townStart(){
 }
 function seedLives(n){
   for(let k=0;k<n;k++){
-    S=newRun(1234567+k*7919,""); beginYear(S); let g=0;
+    S=newRun(1234567+k*7919,"",getHist()); beginYear(S); let g=0;
     while(S.phase!=="ending"&&g++<4000){ S.flashes.length=0;
       if(S.phase==="alloc"){ const acts=actionsOf(S).map(a=>a[0]), al={}, seq=acts.indexOf("work")>=0?[["work","work","study","rest"],["work","family","craft","rest"],["work","network","fame","rest"]][k%3]:["study","study","family","rest"]; for(let i=0;i<S.slots;i++){ const a=acts.indexOf(seq[i%4])>=0?seq[i%4]:"rest"; al[a]=(al[a]||0)+1; } commitAlloc(S,al); }
       else if(S.phase==="event"){ const v=visibleChoices(S,cardById(S.current)).filter(x=>!locked(S,x.c)); choose(S,v[(g+k)%v.length].i); }
@@ -734,13 +764,13 @@ function autoResult(){
     advanceResult();
   }
 }
-function startRun(){ S=newRun((Date.now()^(Math.random()*1e9))|0,nameDraft); drawStep=0; draft=[]; recent=[]; seenSummary=null; prevRanks=null; shown=null; shownAge=null; selPath=null; lastTitle=""; copied=""; lastResult=null; lastSlip=null; slipClosed=false; colOpen=false; cardOpen=null; lastCardKey=""; lastToast=null; confirmNoWork=false; view="game"; }
+function startRun(){ S=newRun((Date.now()^(Math.random()*1e9))|0,nameDraft,getHist()); drawStep=0; draft=[]; recent=[]; seenSummary=null; prevRanks=null; shown=null; shownAge=null; selPath=null; lastTitle=""; copied=""; lastResult=null; lastSlip=null; slipClosed=false; colOpen=false; cardOpen=null; lastCardKey=""; lastToast=null; confirmNoWork=false; view="game"; }
 function act(a,b){
   draft.justAdded=false;
   if(a==="new"){ const el=document.getElementById("nm"); nameDraft=el?el.value.trim().slice(0,8):""; startRun(); SFX.page(); }
   else if(a==="again"){ startRun(); SFX.page(); }
   else if(a==="reroll"){ if(M.rerolls>0){ M.rerolls--; saveMeta(); const nm=S.name; startRun(); S.name=nameDraft||nm; SFX.page(); } }
-  else if(a==="resume-run"){ S=store.get("careerhigh.run"); view="game"; recent=S.summary?[S.summary]:[]; seenSummary=S.summary; lastSlip=S.summary; lastTitle=titleOf(S)+orgOf(S); shown=null; shownAge=S.age; lastResult=S.result; prefill(); }
+  else if(a==="resume-run"){ S=store.get("careerhigh.run"); if(S.born==null){ S.born=2000-S.age; S.ghosts=[]; } view="game"; recent=S.summary?[S.summary]:[]; seenSummary=S.summary; lastSlip=S.summary; lastTitle=titleOf(S)+orgOf(S); shown=null; shownAge=S.age; lastResult=S.result; prefill(); }
   else if(a==="draw-next"){ drawStep++; SFX.stamp(); }
   else if(a==="draw-done"){ beginYear(S); draft=[]; lastTitle=titleOf(S)+orgOf(S); recordCards(); cardFlip=false; save(); SFX.promo(); if(!M.guided) guideStep=0; }
   else if(a==="guide-next"){ if(guideStep<GUIDE.length-1) guideStep++; else { guideStep=null; M.guided=true; saveMeta(); } SFX.tap(); }
