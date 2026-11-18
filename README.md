@@ -3,11 +3,11 @@
 무작위로 정해진 출발점에서 시작해 정년까지 한 사람의 직업 인생을 사는 웹 게임입니다.
 1턴은 1년이고, 17~20세에 시작해 65세에 끝납니다. 한 판은 10~15분쯤 걸립니다.
 
-현재 버전: **8판** (프로토타입)
+현재 버전: **9판** (프로토타입)
 
 **바로 하기: https://minu-96.github.io/CareerHigh/**
 
-지난 판도 주소 뒤에 판 번호를 붙이면 해 볼 수 있습니다. 예: https://minu-96.github.io/CareerHigh/v3/ (`v1` ~ `v8`)
+지난 판도 주소 뒤에 판 번호를 붙이면 해 볼 수 있습니다. 예: https://minu-96.github.io/CareerHigh/v3/ (`v1` ~ `v9`)
 
 ## 어떤 게임인가
 
@@ -89,10 +89,10 @@ node tools/sim.js . 400
 
 ## 버전 기록
 
-판별 변경 내용은 [CHANGELOG.md](CHANGELOG.md)에 있습니다. 1판부터 8판까지 판마다 커밋 하나, 브랜치 하나(`v1` ~ `v8`)가 있고, `main`은 항상 최신 판입니다.
+판별 변경 내용은 [CHANGELOG.md](CHANGELOG.md)에 있습니다. 1판부터 9판까지 판마다 커밋 하나, 브랜치 하나(`v1` ~ `v9`)가 있고, `main`은 항상 최신 판입니다.
 
 ```
-git checkout v1     # 1판 보기 (v2 ~ v8도 같은 방식)
+git checkout v1     # 1판 보기 (v2 ~ v9도 같은 방식)
 git checkout main   # 최신으로 돌아오기
 ```
 
