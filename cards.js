@@ -164,7 +164,7 @@ function markSvg(kind,c,paper,initial){
 }
 
 /* 지금 상태에서 명함 정보 */
-function cardInfoOf(s){ return {name:s.name,age:s.age,title:titleOf(s),org:orgOf(s),job:s.job,track:s.track,stage:s.stage,co:s.company,tier:s.track==="career"?(s.companyMult>=1.2?"big":"small"):s.track==="founder"?"own":"",edu:s.edu,ghost:s.track==="career"&&!!s.company&&s.company===s.ghostCo}; }
+function cardInfoOf(s){ const base={name:s.name,age:s.age,title:titleOf(s),org:orgOf(s),job:s.job,track:s.track,stage:s.stage,co:s.company,tier:s.track==="career"?(s.companyMult>=1.2?"big":"small"):s.track==="founder"?"own":"",edu:s.edu,ghost:s.track==="career"&&!!s.company&&s.company===s.ghostCo}; const l=s.cards[s.cards.length-1]; return l&&l.title===base.title&&l.org===base.org?Object.assign({},l,{name:s.name,age:s.age}):Object.assign(base,{year:yearOf(s)}); }
 function cardKey(c){
   if(!c.track) return "old|"+c.title+"|"+c.org;
   if(c.track==="career"&&c.ghost) return "gh|"+c.co+"|"+c.stage;
@@ -184,8 +184,37 @@ function cardGroups(){
 }
 const CARD_DESIGNS=cardGroups().reduce((n,g)=>n+g.keys.length,0);
 /* 10판: 지난 인생의 회사 명함은 도감 433종과 따로 센다 */
-function dexCount(bc){ return Object.keys(bc).filter(k=>k.indexOf("gh|")!==0).length; }
+function dexCount(bc){ return Object.keys(bc).filter(k=>k.indexOf("gh|")&&k.indexOf("era|")&&k.indexOf("rare|")).length; }
+/* 11판: 시대 양식과 드문 변형 */
+function eraCount(bc){ return Object.keys(bc).filter(k=>!k.indexOf("era|")&&k.indexOf("era|gh|")).length; }
+function eraOf(bc,k){ let n=0; for(const e of ["e80","e90","e00","e10","e20"]) if(bc["era|"+k+"|"+e]) n++; return n; }
+const RARE=[["pen","펜 정정","승진하고 받은 명함에 옛 직함을 펜으로 고쳤다"],["typo","오타","이름 한 글자가 틀려 스티커를 붙였다"],["coffee","커피 자국","지친 해에 받은 명함에 컵 자국이 남았다"],["nick","별명","이름 아래 별명을 누가 적어 놓았다"],["abroad","해외 지사","해외 근무 때 받은 영문 명함"]];
 function ghostDex(bc){ const g={}; for(const k in bc){ if(k.indexOf("gh|")) continue; const p=k.split("|"); (g[p[1]]=g[p[1]]||{})[p[2]]=1; } return g; }
+
+/* ---- 11판: 시대 양식, 신분증, 드문 변형 ---- */
+function cardEra(y){ if(!y) return "e10"; return y<1990?"e80":y<2000?"e90":y<2010?"e00":y<2020?"e10":"e20"; }
+const ERA_NAME={e80:"활판",e90:"PC 통신",e00:"닷컴",e10:"모바일",e20:"미니멀"};
+const HANJA={"김":"金","이":"李","박":"朴","최":"崔","정":"鄭","강":"姜","조":"趙","윤":"尹","장":"張","임":"林","한":"韓","오":"吳"};
+const BADGE={game:[1,2,"lanyard"],doctor:[1,3,"gown"],build:[1,2,"site"],cook:[1,2,"apron"],tutor:[1,3,"tutor"],bank:[1,2,"desk"]};
+function qrSvg(seed){ let r=""; let x=seed>>>0; for(let i=0;i<9;i++) for(let j=0;j<9;j++){ x=(x*1103515245+12345)>>>0; const fin=(i<3&&j<3)||(i<3&&j>5)||(i>5&&j<3); if(fin?((i%3!==1||j%3!==1)&&!(i%3===1&&j%3===1)):(x>>16)&1) r+=`<rect x="${j}" y="${i}" width="1" height="1"/>`; } return `<svg class="bc-qr" viewBox="-1 -1 11 11" aria-hidden="true"><rect x="-1" y="-1" width="11" height="11" fill="#fff"/><g fill="#111">${r}</g></svg>`; }
+function eraContact(era,h,nm,coEn,coName){
+  const id=(rrWord(nm.slice(1)).toLowerCase()||"me"), dom=(coEn||"mail").toLowerCase().replace(/[^a-z]/g,"")||"mail", d4=n=>String(1000+(h>>n)%9000);
+  if(era==="e80") return `TEL. (02) ${700+h%90}-${d4(3)} (交換 ${100+h%800})<br>${escC(coName||"")} 本社`;
+  if(era==="e90") return `직통 (02) 3${String(h%900+100)}-${d4(2)}<br>삐삐 01${h%2?2:5}-${String(200+h%700)}-${d4(4)}<br>하이텔 ${id}${h%90}`;
+  if(era==="e00") return `H.P 01${[1,6,7,9][h%4]}-${String(200+h%700)}-${d4(5)}<br>E-mail ${id}@${dom}.co.kr<br>www.${dom}.co.kr`;
+  if(era==="e20") return `${id}@${dom}.com<br>@${id}.${(SUR[nm.charAt(0)]||"k").toLowerCase()}`;
+  return null;
+}
+function badgeHtml(c,kind,nm,h,job,title,color,coName,wrap){
+  const photo=`<div class="bd-photo"><svg viewBox="0 0 24 24"><circle cx="12" cy="9" r="4.5" fill="currentColor"/><path d="M3 23c0-5 4-8 9-8s9 3 9 8z" fill="currentColor"/></svg></div>`;
+  const role=(ROLES[c.job]||ROLES.dev)[hashStr(nm+c.job)%3];
+  if(kind==="lanyard") return wrap("badge b-lanyard",color,`<div class="bd-strap"></div><div class="bd-hole"></div>${photo}<div class="bd-who"><span class="bd-co">${escC(coName)}</span><b class="bd-name">${escC(nm)}</b><span class="bd-role">${escC(role[1])} · ${escC(title)}</span></div><div class="bd-bar"></div><span class="bd-staff">STAFF</span>`,"");
+  if(kind==="gown") return wrap("badge b-gown",color,`<div class="bd-top"><span>${escC(coName)}</span></div><div class="bd-who"><b class="bd-name">${escC(nm)}</b><span class="bd-role">${escC(role[1])} ${escC(title)}</span><span class="bd-lic">면허 제 ${String(10000+h%89999)} 호</span></div>`,"");
+  if(kind==="site") return wrap("badge b-site",color,`<div class="bd-in"><span class="bd-big">출입증</span><span class="bd-co">${escC(coName)} ${escC(String(1+h%7))}공구</span><b class="bd-name">${escC(nm)}</b><span class="bd-role">${escC(title)} · 혈액형 Rh+ ${"ABO"[h%3]}형</span><span class="bd-sos">비상 010-●●●●-${String(1000+h%9000)}</span><svg class="bd-hat" viewBox="0 0 24 24"><path d="M3.5 16a8.5 8.5 0 0 1 17 0z" fill="#ffd400"/><rect x="2" y="16" width="20" height="3.2" rx="1.2" fill="#ffd400"/><rect x="10.5" y="5.5" width="3" height="7" fill="#e0a800"/></svg></div>`,"");
+  if(kind==="apron") return wrap("badge b-apron",color,`<div class="bd-patch"><b class="bd-name">${escC(nm)}</b><span class="bd-role">${escC(["찬 파트","라인","디저트","그릴"][h%4])} · ${escC(title)}</span></div><span class="bd-co">${escC(coName)}</span>`,"");
+  if(kind==="tutor") return wrap("badge b-tutor",color,`${photo}<div class="bd-who"><span class="bd-co">${escC(coName)}</span><b class="bd-name">${escC(nm)} <small>${escC(["국어","영어","수학","과학","사회"][h%5])}</small></b><span class="bd-quote">"${escC(["포기만 안 하면 됩니다","개념부터 다시","오늘 푼 문제가 시험에 나온다","질문은 언제든"][h%4])}"</span><span class="bd-role">${escC(title)}</span></div>`,"");
+  return wrap("badge b-desk",color,`<div class="bd-plate"><span class="bd-co">${escC(coName)} · 창구 ${1+h%9}번</span><b class="bd-name">${escC(nm)}</b><span class="bd-role">${escC(title)}</span></div>`,"");
+}
 
 function cardHtml(c,opt){
   opt=opt||{}; const w=opt.w||340, job=JOBS[c.job]||JOBS.dev, st=c.stage||0;
@@ -208,24 +237,34 @@ function cardHtml(c,opt){
     const motto=FREE_MOTTO[c.job]||"";
     return wrap(tpl,color,`<div class="bc-side"><span class="bc-mono">${escC(mono)}</span></div>
       <div class="bc-who"><b class="bc-name">${escC(nm)}</b><span class="bc-title">${escC(title)}</span><span class="bc-en">${escC(en)}, ${escC(titleEn)}</span></div>
-      <div class="bc-motto">${escC(motto)}</div><div class="bc-contact">${phone}<br>E. hello@${escC(rrWord(nm.slice(1)).toLowerCase()||"me")}.example</div>`,"");
+      <div class="bc-motto">${escC(motto)}</div><div class="bc-contact">${eraContact(cardEra(c.year),h,nm,"hello","")||`${phone}<br>E. hello@${escC(rrWord(nm.slice(1)).toLowerCase()||"me")}.example`}</div>`,cardEra(c.year));
   }
   if(c.track==="founder"){
     tpl=OWN_TPL[c.job][st]||"corp"; color=OWN_COLORS[hashStr(c.co||"")%OWN_COLORS.length]; mark=st>=3?["square","ring","star","arcs","sprout"][hashStr(c.co||"")%5]:"mono"; mono=(c.co||"?").charAt(0);
     coName=c.co||c.org; coEn=ownEn(c.co||""); titleEn=EN_OWN[c.job][st]||"CEO"; title=(CARD_OWN_TITLE[c.job]||CARD_OWN_TITLE.dev)[st]||title;
     if(st===1) tagline="직접 인쇄한 명함";
-    cls="own s"+st;
+    cls="own s"+st+(st>=6?" co6":"");
   } else if(c.track==="career"){
+    const bdg=BADGE[c.job]; if(bdg&&st>=bdg[0]&&st<=bdg[1]&&!opt.noBadge){ const bb=c.ghost?{c:OWN_COLORS[hashStr(c.co||"")%OWN_COLORS.length]}:BRAND[c.co]||{c:"#16213b"}; return badgeHtml(c,bdg[2],nm,h,job,(CARD_TITLE[c.job]||CARD_TITLE.dev)[st]||title,bb.c,c.co,wrap); }
     const b=c.ghost?{tpl:"corp",c:OWN_COLORS[hashStr(c.co||"")%OWN_COLORS.length],mark:["square","ring","star","arcs","sprout"][hashStr(c.co||"")%5],en:ownEn(c.co||""),tag:"지난 인생이 세운 회사"}:BRAND[c.co]||{tpl:"corp",c:"#16213b",mark:"mono",en:(c.co||"").toUpperCase()};
     tpl=st>=6?"lux":b.tpl; color=b.c; mark=b.mark; coName=c.co; coEn=b.en; tagline=b.tag; titleEn=(EN_TITLE[c.job]||EN_TITLE.dev)[st]||""; title=(CARD_TITLE[c.job]||CARD_TITLE.dev)[st]||title;
-    dept=st>=6?"":st===5?HQ[c.job][0]:role[1]; cls="s"+st;
+    dept=st>=6?"":st===5?HQ[c.job][0]:role[1]; cls="s"+st+(st>=6?" co6":"");
     if(st===1) extra=`<span class="bc-tag">${TRAINEE[c.job]||"수습"}</span>`;
   } else if(!c.track){ tpl="home"; }
   const email=`E. ${rrWord(nm.slice(1)).toLowerCase()||"me"}.${(SUR[nm.charAt(0)]||"").toLowerCase()}@${(coEn||"mail").toLowerCase().replace(/[^a-z]/g,"")}.example`;
-  const titleLine=st===4&&c.track==="career"&&TEAMLEAD[c.job]?`${escC(dept)} 팀장`:escC(title);
+  const era=cardEra(c.year), ec=eraContact(era,h,nm,coEn,coName);
+  let titleLine=st===4&&c.track==="career"&&TEAMLEAD[c.job]?`${escC(dept)} 팀장`:escC(title);
+  let shownName=escC(nm);
+  if(c.v==="pen"&&c.prev) titleLine=`<s>${escC(c.prev)}</s> <span class="bc-pen">${titleLine}</span>`;
+  if(c.v==="typo"&&nm.length>1){ const alt={"준":"쥰","민":"민","서":"셔","우":"유","윤":"융","은":"응","호":"효","연":"얀","나":"냐","린":"림","아":"야","희":"휘","진":"짐"}; const last=nm.charAt(nm.length-1); shownName=escC(nm.slice(0,-1))+`<span class="bc-typo">${alt[last]||last+"̇"}</span>`; extra+=`<span class="bc-sticker">${escC(last)}</span>`; }
+  if(era==="e80"&&HANJA[nm.charAt(0)]) shownName+=`<small class="bc-hj">${HANJA[nm.charAt(0)]}</small>`;
+  if(c.v==="coffee") extra+=`<svg class="bc-coffee" viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="15" fill="none" stroke="#7a4a1e" stroke-width="3.2" stroke-dasharray="70 8 14 6"/><circle cx="20" cy="20" r="15" fill="#7a4a1e" opacity=".07"/></svg>`;
+  if(c.v==="nick"&&c.nick) extra+=`<span class="bc-nick">"${escC(c.nick)}"</span>`;
+  if(era==="e10"&&st>=2&&(c.track==="career"||c.track==="founder")&&tpl!=="lux") extra+=qrSvg(h);
+  cls+=" "+era+(c.v?" v-"+c.v:"");
   const body=`<div class="bc-logo">${markSvg(mark,tpl==="lux"?"url(#gold)":tpl==="tech"||tpl==="block"?(tpl==="block"?"#fff":color):color,tpl==="block"?color:tpl==="tech"?"#12151c":tpl==="lux"?"#141414":"#fff",escC(mono))}<span class="bc-co">${escC(coName)}</span>${coEn?`<span class="bc-coen">${escC(coEn)}</span>`:""}</div>
-    <div class="bc-who">${dept&&!(st===4&&TEAMLEAD[c.job])?`<span class="bc-dept">${escC(dept)}</span>`:""}<b class="bc-name">${escC(nm)}</b><span class="bc-title">${titleLine}</span>${st>1||c.track!=="career"?`<span class="bc-en">${escC(en)}${titleEn?", "+escC(titleEn):""}</span>`:""}</div>
-    <div class="bc-contact">${phone}<br>${escC(email)}${tagline?`<br><i>${escC(tagline)}</i>`:""}</div>${extra}`;
+    <div class="bc-who">${dept&&!(st===4&&TEAMLEAD[c.job])?`<span class="bc-dept">${escC(dept)}</span>`:""}<b class="bc-name">${shownName}</b><span class="bc-title">${titleLine}</span>${st>1||c.track!=="career"?`<span class="bc-en">${escC(en)}${titleEn?", "+escC(titleEn):""}</span>`:""}</div>
+    <div class="bc-contact">${ec||`${phone}<br>${escC(email)}`}${tagline?`<br><i>${escC(tagline)}</i>`:""}</div>${extra}`;
   return wrap(tpl,color,body,cls);
   function wrap(t,col,inner,k){
     const back=opt.back?`<div class="bc bc-back t-${t} ${k}" style="--b:${col};--w:${w}px" aria-hidden="true"><div class="bk-mark">${t==="none"||t==="student"?"":markSvg(mark,"#fff",col,escC(mono))}</div><div class="bk-en"><b>${escC(en)}</b><span>${escC(titleEn||"")}</span><span>${escC(coEn||"")}</span></div></div>`:"";

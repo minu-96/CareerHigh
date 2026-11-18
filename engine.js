@@ -33,7 +33,17 @@ function mark(s,k,t){ s.marks.push({age:s.age,k:k,t:t}); }
 function flash(s,kind,title,sub){ s.flashes.push({kind:kind,title:title,sub:sub||""}); }
 function logAdd(s,text,shame){ s.log.push({age:s.age,text:text,shame:!!shame}); }
 function resumeAdd(s,text){ s.resume.push({age:s.age,text:text}); }
-function cardIssue(s){ const c={age:s.age,title:titleOf(s),org:orgOf(s),job:s.job,track:s.track,stage:s.stage,co:s.company,tier:s.track==="career"?(s.companyMult>=1.2?"big":"small"):s.track==="founder"?"own":"",edu:s.edu,ghost:s.track==="career"&&!!s.company&&s.company===s.ghostCo}; const l=s.cards[s.cards.length-1]; if(!l||l.title!==c.title||l.org!==c.org) s.cards.push(c); }
+function cardIssue(s){ const c={age:s.age,year:yearOf(s),title:titleOf(s),org:orgOf(s),job:s.job,track:s.track,stage:s.stage,co:s.company,tier:s.track==="career"?(s.companyMult>=1.2?"big":"small"):s.track==="founder"?"own":"",edu:s.edu,ghost:s.track==="career"&&!!s.company&&s.company===s.ghostCo}; const l=s.cards[s.cards.length-1]; if(!l||l.title!==c.title||l.org!==c.org){ cardVariant(s,c,l); s.cards.push(c); } }
+/* 11판: 드문 명함 변형. 받을 때 한 번 정해진다 */
+function cardVariant(s,c,l){
+  if(c.track!=="career"&&c.track!=="founder") return;
+  if(s.flags.abroad){ delete s.flags.abroad; c.v="abroad"; return; }
+  const promo=l&&l.org===c.org&&l.track===c.track&&c.stage===l.stage+1;
+  if(promo&&rnd(s)<0.08){ c.v="pen"; c.prev=l.title; return; }
+  if(s.nickname&&rnd(s)<0.15){ c.v="nick"; c.nick=s.nickname; return; }
+  if(s.stats.burn>=60&&rnd(s)<0.10){ c.v="coffee"; return; }
+  if(rnd(s)<0.04){ c.v="typo"; return; }
+}
 
 function newRun(seed,name,hist){
   const s={v:4,goals:[],goalsDone:{},streak:0,seed:seed|0,name:"",age:17,origin:"",edu:"",traits:[],perks:[],job:"",track:"school",stage:0,pp:0,
