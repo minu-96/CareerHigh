@@ -9,9 +9,9 @@ const HEX={org:"#2f66d8",craft:"#dd6f22",biz:"#17915a",fame:"#d93f77",wealth:"#c
 const ACT_COLOR={work:"org",study:"craft",craft:"craft",network:"biz",fame:"fame",invest:"wealth",family:"life",rest:"rest",part:"wealth",club:"biz"};
 const MARK_COLOR={job:"var(--ink)",up:"var(--c-org)",biz:"var(--c-biz)",craft:"var(--c-craft)",peak:"var(--stamp)",life:"var(--c-life)",bad:"var(--muted)"};
 const ORDER={promo:["인사발령","발령","새 명함 받기"],peak:["정점","축","계속 산다"],mp:["대표작 완성","완성","계속"],found:["사업자등록증","등록","문을 연다"],collapse:["진단서","입원","받아들인다"],miss:["승진 심사 결과","누락","다음을 노린다"],closed:["폐업 신고","폐업","다시 시작한다"],goal:["버킷리스트","달성","좋다"]};
-const ENDINGS=["정년 퇴임","박수 칠 때 떠나다","조기 은퇴","파산","르네상스인","오뚝이","최연소","동기 사랑","프로 이직러","만년 과장","한 우물"];
+const ENDINGS=["정년 퇴임","박수 칠 때 떠나다","스스로 내려왔다","조기 은퇴","파산","르네상스인","오뚝이","최연소","동기 사랑","프로 이직러","만년 과장","한 우물"];
 const NICKS=["야근 요정","가족 바보","칼퇴의 신","관종","차트 중독","회식 에이스","자기계발 중독","프로 이직러","만년 ○○"];
-const END_LABEL={retire:"정년 퇴임",clear:"박수 칠 때 떠나다",burnout:"조기 은퇴",bankrupt:"파산"};
+const END_LABEL={retire:"정년 퇴임",clear:"박수 칠 때 떠나다",self:"스스로 내려왔다",burnout:"조기 은퇴",bankrupt:"파산"};
 const reduce=window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const esc=t=>String(t).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const store={get(k){ try{ return JSON.parse(localStorage.getItem(k)); }catch(e){ return null; } }, set(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} }, del(k){ try{ localStorage.removeItem(k); }catch(e){} }};
@@ -98,7 +98,7 @@ function fxFor(f){
 }
 
 const counts=arr=>{ const o={}; for(const k of arr) o[k]=(o[k]||0)+1; return o; };
-function prefill(){ draft=[]; if(!S||S.onLeave||S.phase!=="alloc") return; const al=autoAlloc(S); if(!al) return; const acts=actionsOf(S).map(a=>a[0]); for(const k of acts) for(let i=0;i<(al[k]||0);i++) draft.push(k); draft=draft.slice(0,S.slots); }
+function prefill(){ draft=[]; if(!S||S.onLeave||S.phase!=="alloc") return; const changed=!S.lastAlloc||S.lastAllocTrack!==S.track; S.planNote=S.lastAlloc&&S.lastAllocTrack&&S.lastAllocTrack!==S.track?"처지가 바뀌어 계획을 새로 짰다.":""; const al=changed?defaultPlan(S):autoAlloc(S); if(!al) return; const acts=actionsOf(S).map(a=>a[0]); for(const k of acts) for(let i=0;i<(al[k]||0);i++) draft.push(k); draft=draft.slice(0,S.slots); }
 function trackColor(s){ return s.track==="founder"?PCOLOR.biz:s.track==="free"?PCOLOR.craft:s.track==="career"?PCOLOR.org:"var(--ink)"; }
 function wonShort(n){ const a=Math.abs(n), sg=n<0?"-":""; if(a>=10000) return sg+(a/10000).toFixed(a>=100000?0:1).replace(/\.0$/,"")+"억"; return sg+a.toLocaleString("ko-KR")+"만"; }
 function chipList(d){ return Object.keys(d).map(k=>{ const v=d[k], good=k==="burn"?v<0:v>0; return `<span class="chip ${good?"up":"dn"}">${STAT[k]} ${v>0?"+":""}${k==="money"||k==="assets"?wonShort(v):v}</span>`; }).join(""); }
@@ -166,6 +166,7 @@ function shareText(){
 }
 
 /* ============ 5판 화면 구조 ============ */
+let lastToast=null, confirmNoWork=false;
 let recTab="status", slipClosed=false, colOpen=false, slipMini=false, cardOpen=null, cardFlipped=false, lastCardKey="", guideStep=null;
 const SKY=[[0,"#26345f","#f2a27a"],[.1,"#5f8fd6","#ffd2a8"],[.3,"#4b8be4","#c4e3ff"],[.5,"#3a7ddf","#acd6ff"],[.7,"#5584cc","#f5d59c"],[.86,"#45437f","#f28a5c"],[.95,"#1d2350","#9a5a7a"],[1,"#0f1533","#4a3a6a"]];
 const mix=(a,b,k)=>{ const p=h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16)); const x=p(a),y=p(b); return "#"+x.map((v,i)=>Math.round(v+(y[i]-v)*k).toString(16).padStart(2,"0")).join(""); };
@@ -193,6 +194,10 @@ function city(o){
     for(let f=0;f<5;f++){ const y=base-(f+1)*fl;
       if(f<rank){ const top=fresh&&f===rank-1; g+=`<g class="${top?"drop":""}"><rect class="body" x="${x}" y="${y}" width="${w}" height="${fl}" fill="#16213b"/>`;
         for(let k=0;k<4;k++) g+=`<rect class="${top?"lit":""}" style="animation-delay:${.35+k*.1}s" x="${x+6+k*12.5}" y="${y+6}" width="8" height="11" fill="${HEX[p]}"/>`; g+=`</g>`; }
+      else if(f===rank&&o.prog){ const pr=Math.max(0,Math.min(1,o.prog[p]||0)), lit=Math.round(pr*4);
+        g+=`<rect x="${x+.5}" y="${y+.5}" width="${w-1}" height="${fl-1}" fill="#16213b" fill-opacity=".35" stroke="#ffffff" stroke-opacity=".7" stroke-dasharray="3 3"/>`;
+        for(let k=0;k<4;k++) g+=`<rect x="${x+6+k*12.5}" y="${y+6}" width="8" height="11" fill="${k<lit?HEX[p]:"#ffffff"}" opacity="${k<lit?.85:.18}"/>`;
+        if(rank===0) g+=`<path d="M${x-3} ${base}V${y-6}M${x+w+3} ${base}V${y-6}M${x-3} ${y-6}H${x+w+3}M${x-3} ${base-8}L${x+w+3} ${y-2}" stroke="#ffe14d" stroke-opacity=".7" stroke-width="1.5" fill="none"/>`; }
       else g+=`<rect x="${x+.5}" y="${y+.5}" width="${w-1}" height="${fl-1}" fill="none" stroke="#ffffff" stroke-opacity=".55" stroke-dasharray="3 3"/>`;
     }
     if(peaked) g+=`<line x1="${x+w/2}" y1="${base-5*fl}" x2="${x+w/2}" y2="${base-5*fl-24}" stroke="#d33a22" stroke-width="2"/><path class="flag" d="M${x+w/2} ${base-5*fl-24}h16l-5 5 5 5h-16z" fill="#d33a22"/>`;
@@ -203,7 +208,7 @@ function city(o){
   return g+`</svg>`;
 }
 function freshRanks(){ if(!prevRanks) return null; const r=ranksNow(S), o={}; for(const p in r) if(r[p]>(prevRanks[p]||0)) o[p]=1; return o; }
-function sceneFor(s,extra){ return city({age:s.age,ranks:ranksNow(s),peaks:s.peakAt,fresh:freshRanks(),interactive:true,sel:selPath,label:null})+(extra||""); }
+function sceneFor(s,extra){ const prog={}; for(const p in PATHS) prog[p]=pathProgress(s,p); return city({age:s.age,ranks:ranksNow(s),peaks:s.peakAt,fresh:freshRanks(),interactive:true,sel:selPath,label:null,prog:prog})+(extra||""); }
 
 function hudRuler(s){
   const x=a=>6+(a-17)/(65-17)*328;
@@ -219,7 +224,7 @@ function hud(s){
   const tick=shownAge!=null&&shownAge!==s.age;
   const done=Object.keys(s.goalsDone||{}).length;
   return `<header class="hud" style="--track:${trackColor(s)}">
-    <div class="who-wrap"><button class="hud-card ${cardFlip?"flip":""}" data-act="card" data-i="cur" aria-label="지금 명함 크게 보기">${cardHtml(cardInfoOf(s),{w:window.innerWidth<520?78:96})}</button><div class="who"><b>${esc(s.name)}</b><span>${esc(cardTitleOf(s))}${s.track==="career"||s.track==="founder"?", "+esc(s.company):""}</span>${s.nickname?`<span class="nick">${esc(s.nickname)}</span>`:""}</div></div>
+    <div class="who-wrap"><button class="hud-card ${cardFlip?"flip":""}" data-act="card" data-i="cur" aria-label="지금 명함 크게 보기">${cardHtml(cardInfoOf(s),{w:window.innerWidth<520?78:96})}</button><div class="who" data-act="card" data-i="cur" role="button" tabindex="0" aria-label="지금 명함 크게 보기"><b>${esc(s.name)}</b><span>${esc(cardTitleOf(s))}${s.track==="career"||s.track==="founder"?", "+esc(s.company):""}</span>${s.nickname?`<span class="nick">${esc(s.nickname)}</span>`:""}</div></div>
     <div class="clock"><div class="age num"><span class="${tick?"tick":""}">${s.age}</span><small>세</small></div>${hudRuler(s)}</div>
     <div class="hud-btns"><button class="hbtn" data-act="rec" data-tab="status">기록</button><button class="hbtn" data-act="mute" aria-label="${M.mute?"소리 켜기":"소리 끄기"}">${M.mute?"소리 끔":"소리 켬"}</button></div>
   </header>`;
@@ -257,9 +262,12 @@ function towerDetail(s){
     <ul class="ladder">${names.map((n,i)=>`<li class="${i<r?"on":""} ${i===r?"next":""}"><i></i><span>${i+1}층 ${esc(n)}</span></li>`).join("")}</ul>
     <p class="small"><span class="hl">다음: ${esc(nextReq(s,p))}</span></p></div>`;
 }
-function goalsBlock(s){
-  return `<div class="goals"><p class="goals-h">버킷리스트</p>${s.goals.map(id=>{ const g=GOALS.find(x=>x.id===id), d=s.goalsDone[id];
-    return `<p class="goal ${d!=null?"done":""}"><i></i><span>${esc(g.t)}</span>${d!=null?`<em>${d}세</em>`:""}</p>`; }).join("")}</div>`;
+function goalsBlock(s,detail){
+  const first=!Object.keys(M.endings||{}).length&&!s.final;
+  let focus=null; if(first){ let best=-1; for(const id of s.goals){ if(s.goalsDone[id]!=null) continue; const p=goalProgress(s,id), f=p.need?Math.min(1,(p.now||0)/p.need):0.05; if(f>best){ best=f; focus=id; } } }
+  return `<div class="goals"><p class="goals-h">버킷리스트</p>${s.goals.map(id=>{ const g=GOALS.find(x=>x.id===id), d=s.goalsDone[id], p=d==null&&detail!==false&&!s.final?goalProgress(s,id):null;
+    const bar=p&&p.need?`<span class="gbar"><i style="width:${Math.round(Math.max(0,Math.min(1,(p.now||0)/p.need))*100)}%"></i></span>`:"";
+    return `<div class="goal-wrap ${focus===id?"focus":""}"><p class="goal ${d!=null?"done":""}"><i></i><span>${esc(g.t)}</span>${d!=null?`<em>${d}세</em>`:focus===id?`<em class="tagf">첫 목표</em>`:""}</p>${p?`${bar}<small class="ghint">${esc(p.text)}</small>`:""}</div>`; }).join("")}</div>`;
 }
 function tags(s){
   const t=[]; if(s.flags.married) t.push("기혼"); else if(s.flags.partner) t.push("연애 중"); else if(s.flags.divorced) t.push("이혼");
@@ -270,31 +278,48 @@ function tags(s){
   if(!t.length&&!perks.length) return "";
   return `<div class="tags">${t.map(x=>`<span class="tag">${esc(x)}</span>`).join("")}${perks.map(p=>`<span class="tag perk" title="${esc(p.desc)}">${esc(p.name)}</span>`).join("")}</div>`;
 }
-function rail(s){ return `<aside class="rail"><button data-act="card" data-i="cur" aria-label="지금 명함 크게 보기">${cardHtml(cardInfoOf(s),{w:298,cls:cardFlip?"reveal":""})}</button>${towerDetail(s)}${goalsBlock(s)}${tags(s)}</aside>`; }
+function rail(s){ const logs=s.log.slice(-3).reverse();
+  return `<aside class="rail"><button data-act="card" data-i="cur" aria-label="지금 명함 크게 보기">${cardHtml(cardInfoOf(s),{w:298,cls:cardFlip?"reveal":""})}</button>${upcoming(s).length?`<div class="rail-block"><p class="goals-h">다가오는 결정</p>${upcomingHtml(s)}</div>`:""}${goalsBlock(s)}${towerDetail(s)}${logs.length?`<div class="rail-block"><p class="goals-h">최근 수첩</p><ul class="recent-log">${logs.map(l=>`<li class="${l.shame?"shame":""}"><b>${l.age}세</b> ${esc(l.text)}</li>`).join("")}</ul><button class="link" data-act="rec" data-tab="log">수첩 전체 보기</button></div>`:""}${tags(s)}</aside>`; }
 const QUARTER=["1분기","2분기","3분기","4분기","야근"];
+const SHORT={work:"성과↑ 번아웃+8",bizwork:"회사 성과↑ 번아웃+8",gig:"수입↑ 번아웃+8",study:"능력↑ 번아웃+3",prep:"능력↑ 번아웃+3",school:"능력↑ 번아웃+3",network:"인맥+5 현금-100만",fame:"명성↑ 성과-3",invest:"현금 25% 투자",family:"일상↑ 번아웃-6",friends:"일상↑ 번아웃-6",rest:"번아웃-15",part:"현금+300만 번아웃+5",club:"인맥+4 평판+2"};
+function actKey(s,k){ const a=ACTIONS[s.track].find(x=>x[0]===k); return a?a[1]:k; }
+function signed(n,unit){ return (n>0?"+":"")+n+(unit||""); }
+function upcomingHtml(s,max){ const u=upcoming(s).slice(0,max||9); if(!u.length) return "";
+  return `<div class="upnext">${u.map(it=>`<div class="up-item"><p class="up-h"><b>${esc(it.when)}</b> ${esc(it.title)}</p><ul>${it.lines.map(l=>`<li class="${l.ok?"ok":"no"}">${esc(l.t)}</li>`).join("")}</ul></div>`).join("")}</div>`; }
+function toastBand(){ const r=lastToast; if(!r) return "";
+  return `<div class="resultbar"><button class="x" data-act="toast-close" aria-label="닫기">×</button><p><span class="muted">방금</span> <b>${esc(r.title)}</b> ${esc(r.text)}</p>${Object.keys(r.delta||{}).length?`<div class="chips">${chipList(r.delta)}</div>`:""}${r.shame?`<p class="shame-note">업무 수첩에만 남는다: ${esc(r.shame)}</p>`:""}</div>`; }
 function desk(s){
-  const acts=actionsOf(s), left=s.slots-draft.length, notes=slotNotes(s), rot=["-1.5deg","1deg","-.5deg","1.6deg","-1deg"];
+  const acts=actionsOf(s), planning=s.phase==="alloc", plan=planning?draft:(s.planView||[]), left=s.slots-draft.length, notes=slotNotes(s), rot=["-1.5deg","1deg","-.5deg","1.6deg","-1deg"];
+  const pv=planning&&!s.onLeave&&left<=0?previewAlloc(s,counts(draft)):null;
   let warn="";
-  if(s.stats.burn>=85) warn="번아웃 "+s.stats.burn+". 100이 되면 쓰러진다. 휴식이 필요하다.";
+  if(pv&&pv.burnEnd>=100) warn="이대로면 올해 끝에 번아웃이 100에 닿아 쓰러진다. 휴식을 넣자.";
+  else if(s.stats.burn>=85) warn="번아웃 "+s.stats.burn+". 100이 되면 쓰러진다. 휴식이 필요하다.";
   else if(s.stats.burn>=70) warn="번아웃 "+s.stats.burn+". 행동력이 한 칸 줄었다.";
   else if(s.stats.money<0) warn="현금이 바닥났다. 빚이 계속되면 파산한다.";
-  else if(s.track==="career"&&draft.length===s.slots&&draft.indexOf("work")<0) warn="업무 칸이 없으면 평가가 D로 떨어진다.";
+  else if(working(s)&&s.track!=="free"&&draft.length===s.slots&&draft.indexOf("work")<0) warn="업무 칸이 없으면 평가가 D로 떨어진다.";
+  else if(s.stats.life<40&&working(s)) warn="일상 "+s.stats.life+". 일상이 40 아래면 해가 바뀌어도 피로가 거의 풀리지 않는다.";
   else if(notes.length) warn="칸이 줄었다: "+notes.join(", ");
   const canResign=(s.track==="career"||s.track==="free"||s.track==="founder")&&s.stage<6&&!s.onLeave;
   return `<section class="desk">
     <div class="desk-head"><h2 class="disp">${s.age}세의 한 해</h2><span class="aside">${s.onLeave?"쉬는 해":"행동력 "+s.slots+"칸"} <button class="bucket-chip" data-act="rec" data-tab="status">버킷리스트 ${Object.keys(s.goalsDone||{}).length}/3</button></span></div>
+    ${planning?toastBand():""}
+    ${planning?upcomingHtml(s,1).replace('class="upnext"','class="upnext desk-up"'):""}
     ${warn?`<p class="warnline">${esc(warn)}</p>`:""}
+    ${planning&&s.planNote&&!s.onLeave?`<p class="small plannote">${esc(s.planNote)}</p>`:""}
     ${s.onLeave?`<p class="small">올해는 쉰다. 아무것도 하지 않아도 된다.</p>`:`
-    <div class="slots">${Array.from({length:s.slots},(_,i)=>{ const k=draft[i]; if(!k) return `<div class="slot"><em>${QUARTER.at(Math.min(i,4))}</em>비어 있음</div>`; const a=acts.find(x=>x[0]===k);
-      return `<button class="slot filled ${i===draft.length-1&&draft.justAdded?"new":""}" data-act="unslot" data-i="${i}" style="--pc:${PCOLOR[ACT_COLOR[k]]};--r:${rot.at(i)}" aria-label="${QUARTER.at(Math.min(i,4))} ${a?a[1]:k} 빼기"><em>${QUARTER.at(Math.min(i,4))}</em>${a?a[1]:k}</button>`; }).join("")}</div>
+    <div class="slots">${Array.from({length:planning?s.slots:Math.max(plan.length,1)},(_,i)=>{ const k=planning?plan[i]:(plan[i]||[])[0]; if(!k) return `<div class="slot"><em>${QUARTER.at(Math.min(i,4))}</em>비어 있음</div>`;
+      const label=planning?((acts.find(x=>x[0]===k)||[])[1]||k):plan[i][1];
+      if(!planning) return `<div class="slot filled" style="--pc:${PCOLOR[ACT_COLOR[k]]};--r:${rot.at(i)}"><em>${QUARTER.at(Math.min(i,4))}</em>${esc(label)}</div>`;
+      return `<button class="slot filled ${i===draft.length-1&&draft.justAdded?"new":""}" data-act="unslot" data-i="${i}" style="--pc:${PCOLOR[ACT_COLOR[k]]};--r:${rot.at(i)}" aria-label="${QUARTER.at(Math.min(i,4))} ${esc(label)} 빼기"><em>${QUARTER.at(Math.min(i,4))}</em>${esc(label)}</button>`; }).join("")}</div>
     <div class="handrow">${acts.map(a=>{ const n=draft.filter(x=>x===a[0]).length, cant=left<=0||(a[0]==="invest"&&s.stats.money<500);
-      let sub=a[2]; if(a[0]==="craft") sub="진행 "+Math.min(s.prog,4)+"/4, 다 차면 도전"; if(a[0]==="invest"&&s.stats.money<500) sub="현금 500만 원 이상 필요";
+      let sub=SHORT[actKey(s,a[0])]||a[2]; if(a[0]==="craft") sub="진행 "+Math.min(s.prog,4)+"/4"; if(a[0]==="invest"&&s.stats.money<500) sub="현금 500만 필요";
       return `<button class="pc" data-act="add" data-k="${a[0]}" style="--pc:${PCOLOR[ACT_COLOR[a[0]]]}" title="${esc(a[2])}" ${cant?"disabled":""}>${n?`<span class="cnt">${n}</span>`:""}<b>${a[1]}</b><small>${esc(sub)}</small></button>`; }).join("")}</div>`}
+    ${pv?`<p class="preview"><span class="muted">이 계획이면</span>${pv.grade?` <b>평가 ${pv.grade} 예상</b>`:""} <span class="${pv.burn>0?"dn":"up"}">번아웃 ${signed(pv.burn)}</span> <span class="${pv.life<0?"dn":"up"}">일상 ${signed(pv.life)}</span>${pv.money?` <span class="${pv.money<0?"dn":"up"}">현금 ${pv.money<0?"-":"+"}${wonShort(Math.abs(pv.money))}</span>`:""}${pv.notes.length?` <span class="muted">(${esc(pv.notes.join(", "))})</span>`:""}</p>`:""}
     <div class="desk-btns">
       <button class="gbtn ${left<=0||s.onLeave?"ready":""}" data-act="commit" ${left>0&&!s.onLeave?"disabled":""}>${s.onLeave?"한 해 쉬기":left>0?left+"칸 더 채우기":"한 해 보내기"}</button>
-      <button class="gbtn alt" data-act="ff" ${left>0||s.onLeave?"disabled":""}>사건까지 반복</button>
+      <button class="gbtn alt" data-act="ff" ${left>0||s.onLeave?"disabled":""}>사건까지 넘기기</button>
     </div>
-    <div class="desk-foot">${draft.length&&!s.onLeave?`<button class="link" data-act="clear">계획 비우기</button>`:"<span></span>"}${canResign?`<button class="resign-s" data-act="resign">${s.track==="founder"?"회사를 접을까":s.track==="free"?"다른 길 찾기":"사직서"}</button>`:""}</div>
+    <div class="desk-foot">${planning&&draft.length&&!s.onLeave?`<button class="link" data-act="clear">계획 비우기</button>`:"<span></span>"}${canResign?`<button class="resign-s" data-act="resign">${s.track==="founder"?"회사를 접을까":s.track==="free"?"다른 길 찾기":"사직서"}</button>`:""}</div>
   </section>`;
 }
 function vGame(){
@@ -303,6 +328,7 @@ function vGame(){
 function vEventModal(){
   const card=cardById(S.current), cat=catOf(card);
   return `<div class="modal" role="dialog" aria-modal="true" aria-label="${esc(fill(S,card.title))}"><div class="mcard" style="--pc:${cat[1]}"><span class="cat">${esc(cat[0])}</span><span class="age-tag">${S.age}세</span>
+    ${lastToast?`<div class="justnow"><span class="muted">방금</span> <b>${esc(lastToast.title)}</b> ${esc(lastToast.text)}${Object.keys(lastToast.delta||{}).length?` <span class="chips inline">${chipList(lastToast.delta)}</span>`:""}</div>`:""}
     <h2 class="disp">${esc(fill(S,card.title))}</h2><p class="body">${esc(fill(S,card.text))}</p>
     <p class="mstats">${["skill","rep","net","fame","life","burn"].map(k=>`<span>${STAT[k]} <b>${S.stats[k]}</b></span>`).join("")}<span>현금 <b>${won(S.stats.money)}</b></span></p>
     ${visibleChoices(S,card).map((x,n)=>{ const ch=x.c, lk=locked(S,ch), p=choiceChance(S,ch);
@@ -342,6 +368,10 @@ function vOverlay(f){
     <button class="gbtn" data-act="dismiss">${esc(o[2])}</button></div></div>`;
 }
 
+function vConfirmNoWork(){
+  return `<div class="modal center" role="dialog" aria-modal="true" aria-label="업무 없이 보낼까"><div class="order" style="--pc:var(--stamp)"><span class="kind">확인</span><h2 class="disp">업무 칸이 없다</h2><p class="sub">업무 없이 한 해를 보내면 평가가 D로 떨어진다. 2년 연속 D면 권고사직이다.</p>
+    <div class="btn-row"><button class="gbtn alt" data-act="confirm-close">계획 고치기</button><button class="gbtn" data-act="commit-anyway">이대로 보낸다</button></div><p class="small muted">이번 인생에서는 다시 묻지 않는다.</p></div></div>`;
+}
 /* ---------- 명함 크게 보기, 첫 안내 ---------- */
 function vCardModal(){
   const c=cardOpen==="cur"?cardInfoOf(S):Object.assign({name:S.name},S.cards[cardOpen]||{});
@@ -351,12 +381,19 @@ function vCardModal(){
     <div class="btn-row"><button class="gbtn alt" data-act="card-flip">뒤집기</button><button class="gbtn" data-act="card-close">닫기</button></div></div></div>`;
 }
 const GUIDE=[
-  ["한 해는 네 칸","책상 위 행동 카드를 눌러 1분기부터 4분기까지 채운다. 업무만 하면 쓰러지고, 쉬기만 하면 뒤처진다. 같은 계획을 이어 가려면 '사건까지 반복'을 누른다."],
+  ["한 해는 네 칸","책상 위 행동 카드를 눌러 1분기부터 4분기까지 채운다. 업무만 하면 쓰러지고, 쉬기만 하면 뒤처진다. 행동 카드를 누르면 칸에 붙고, 붙은 칸을 누르면 빠진다."],
   ["꼭대기는 여섯 곳","도시의 건물 여섯 동이 회사, 장인, 창업, 명성, 자산, 삶의 길이다. 층이 오를 때마다 불이 켜지고, 5층에 닿으면 깃발이 선다. 건물을 누르면 다음 조건이 보인다."],
-  ["명함이 이력이다","승진하거나 회사를 옮기면 새 명함이 나온다. 회사마다, 직급마다 디자인이 다르다. 모은 명함은 수집첩의 명함 도감에 남는다."]
+  ["명함이 이력이다","승진하거나 회사를 옮기면 새 명함이 나온다. 회사마다, 직급마다 디자인이 다르다. 모은 명함은 수집첩의 명함 도감에 남는다."],
+  ["이번 인생의 첫 목표",""]
 ];
+function firstGoalText(s){
+  const j=job(s).name;
+  if(s.track==="school"&&(s.edu==="gen"||s.edu==="voc")) return j+"에 들어가는 것이 첫 목표다. "+(s.gradAge-1)+"세 끝에 졸업 진로를 고른다. 4년제는 능력 22가 있어야 하니 공부 칸을 먼저 채우자. 책상 위 '다가오는 결정'에 조건이 늘 보인다.";
+  if(s.track==="school") return j+"에 들어가는 것이 첫 목표다. "+(s.gradAge-1)+"세 끝에 지원서를 쓴다. 능력과 인맥을 올려 두면 이름 있는 곳에 붙을 확률이 오른다.";
+  return j+"에 들어가는 것이 첫 목표다. 올해 끝에 지원서를 쓴다. 취업 준비로 능력을, 인맥으로 합격률을 올리자.";
+}
 function vGuide(){
-  const g=GUIDE[guideStep], last=guideStep===GUIDE.length-1;
+  const g=GUIDE[guideStep].slice(), last=guideStep===GUIDE.length-1; if(guideStep===3) g[1]=firstGoalText(S)+" 같은 계획을 이어 가려면 '사건까지 넘기기'를 누른다. 사건이 없는 해는 그 계획대로 저절로 지나간다.";
   return `<div class="modal center" role="dialog" aria-modal="true" aria-label="안내"><div class="order" style="--pc:var(--hl)"><span class="kind">처음 하는 인생 ${guideStep+1}/${GUIDE.length}</span><h2 class="disp">${g[0]}</h2><p class="sub">${g[1]}</p>
     ${guideStep===2?`<div class="guide-art">${cardHtml(cardInfoOf(S),{w:260})}</div>`:""}
     <div class="guide-dots">${GUIDE.map((_,i)=>`<i class="${i===guideStep?"on":""}"></i>`).join("")}</div>
@@ -436,12 +473,13 @@ function vDraw(){
 }
 function vEnding(){
   const f=S.final, finds=f.finds||[];
-  const kicker=f.hidden?"숨은 엔딩":f.kind==="burnout"||f.kind==="bankrupt"?"중도 엔딩":S.age+"세, 마지막 출근";
+  const kicker=f.hidden?"숨은 엔딩":f.kind==="burnout"||f.kind==="bankrupt"?"중도 엔딩":f.kind==="self"?S.age+"세, 스스로 내려온 날":S.age+"세, 마지막 출근";
   return `<div class="ending"><div class="scene">${city({age:S.age,vb:"0 -170 600 442",ranks:f.ranks,peaks:S.peakAt,label:"이 인생이 세운 도시"})}
       <div class="end-title"><p class="kicker">${esc(kicker)}</p><h1>${esc(f.hidden||f.title)}</h1>${f.hidden?`<p class="sub">${esc(f.title)}</p>`:""}</div></div>
     <div class="end-body">
       <p class="hand" style="text-align:center">${esc(f.scene)}</p>
       <p class="verdict-line"><span class="hl"><b>${esc(f.verdict)}</b></span></p>
+      ${f.cause?`<p class="cause-line">${esc(f.cause)}</p>`:""}
       <div class="card-stage"><button data-act="card" data-i="cur" aria-label="마지막 명함 크게 보기">${cardHtml(cardInfoOf(S),{w:Math.min(360,window.innerWidth-40),cls:"reveal shine"})}</button><p class="card-cap">마지막 명함. 받은 명함은 모두 ${S.cards.length}장.</p></div>
       <section class="sheet finds"><div class="sheet-head"><h2 class="disp">이번 인생이 남긴 것</h2><span class="aside">수집첩에 ${finds.length}개 추가</span></div>
         ${finds.length?`<ul class="lines">${finds.map((x,i)=>`<li class="find" style="animation-delay:${300+i*140}ms">${esc(x)}</li>`).join("")}</ul>`:`<p class="small muted">새로 모은 것은 없다. 다른 길을 걸어 보면 생긴다.</p>`}
@@ -449,7 +487,7 @@ function vEnding(){
         <div class="btn-row"><button class="gbtn alt" data-act="copy">${copied?esc(copied):"결과 복사하기"}</button><button class="gbtn" data-act="again">바로 다음 인생</button></div>
         <button class="gbtn alt" data-act="town">커리어 타운에서 이 사람 만나기</button>
       </section>
-      ${goalsBlock(S)}
+      ${goalsBlock(S,false)}
       <section class="sheet"><div class="sheet-head"><h2 class="disp">한 사람의 그래프</h2></div>${lifeChart(S)}</section>
       <section class="sheet"><div class="sheet-head"><h2 class="disp">최종 이력서</h2></div>
         <table class="formtbl">${Object.keys(PATHS).map(p=>`<tr><th style="border-left:4px solid ${PCOLOR[p]}">${PATHS[p]}</th><td>${f.ranks[p]}층 ${f.ranks[p]?esc(rankName(S,p,f.ranks[p])):"<span class=\"muted\">걷지 않은 길</span>"}${S.peakAt[p]?` <b class="bad">정점 (${S.peakAt[p]}세)</b>`:""}</td></tr>`).join("")}
@@ -645,6 +683,7 @@ function render(){
   }
   if(lifeOpen!=null){ const r=getHist()[lifeOpen]; if(r) h+=vLife(r); else lifeOpen=null; }
   if(cardOpen!=null&&S) h+=vCardModal();
+  if(confirmNoWork&&S&&view==="game") h+=vConfirmNoWork();
   if(guideStep!=null&&S&&view==="game") h+=vGuide();
   app.innerHTML=h;
   fitScenes();
@@ -681,7 +720,21 @@ function recordCards(){
   const ck=cardKey(cardInfoOf(S)); if(ck!==lastCardKey){ cardFlip=!!lastCardKey; lastCardKey=ck; }
   if(ch) saveMeta();
 }
-function startRun(){ S=newRun((Date.now()^(Math.random()*1e9))|0,nameDraft); drawStep=0; draft=[]; recent=[]; seenSummary=null; prevRanks=null; shown=null; shownAge=null; selPath=null; lastTitle=""; copied=""; lastResult=null; lastSlip=null; slipClosed=false; colOpen=false; cardOpen=null; lastCardKey=""; view="game"; }
+function advanceResult(){
+  if(S.resignOpen){ S.resignOpen=false; S.result=null; S.slots=S.onLeave?0:slotsOf(S); if(S.queue.length) nextEvent(S); else S.phase="alloc"; }
+  else nextEvent(S);
+  if(S.phase==="alloc"&&!S.summary) recent=[];
+}
+/* 판정도 연출도 없는 결과는 모달 대신 띠로 보여 주고 바로 넘어간다 */
+function autoResult(){
+  let guard=0;
+  while(S.phase==="result"&&S.result&&!S.result.roll&&!(S.flashes&&S.flashes.length)&&guard++<5){
+    const r=S.result; lastToast={title:r.title,text:r.text,delta:r.delta,shame:r.shame,age:S.age};
+    if(r.shame) SFX.bad(); else if(r.delta&&r.delta.money>0) SFX.coin(); else SFX.tap();
+    advanceResult();
+  }
+}
+function startRun(){ S=newRun((Date.now()^(Math.random()*1e9))|0,nameDraft); drawStep=0; draft=[]; recent=[]; seenSummary=null; prevRanks=null; shown=null; shownAge=null; selPath=null; lastTitle=""; copied=""; lastResult=null; lastSlip=null; slipClosed=false; colOpen=false; cardOpen=null; lastCardKey=""; lastToast=null; confirmNoWork=false; view="game"; }
 function act(a,b){
   draft.justAdded=false;
   if(a==="new"){ const el=document.getElementById("nm"); nameDraft=el?el.value.trim().slice(0,8):""; startRun(); SFX.page(); }
@@ -698,19 +751,21 @@ function act(a,b){
   else if(a==="add"){ if(draft.length<S.slots){ draft.push(b.dataset.k); draft.justAdded=true; SFX.post(draft.length-1); } }
   else if(a==="unslot"){ draft.splice(+b.dataset.i,1); SFX.unpost(); }
   else if(a==="clear"){ draft=[]; SFX.unpost(); }
-  else if(a==="commit"){ recent=[]; SFX.page(); commitAlloc(S,counts(draft)); afterStep(); }
+  else if(a==="commit"||a==="commit-anyway"){
+    if(a==="commit-anyway"){ S.noWorkOk=true; confirmNoWork=false; }
+    if(a==="commit"&&working(S)&&S.track!=="free"&&!S.onLeave&&draft.indexOf("work")<0&&!S.noWorkOk){ confirmNoWork=true; SFX.tap(); render(); return; }
+    recent=[]; lastToast=null; SFX.page(); S.planView=draft.map(k=>[k,(actionsOf(S).find(x=>x[0]===k)||[])[1]||k]); commitAlloc(S,counts(draft)); draft=[]; autoResult(); afterStep(); }
+  else if(a==="confirm-close"){ confirmNoWork=false; SFX.tap(); }
+  else if(a==="toast-close"){ lastToast=null; SFX.tap(); }
   else if(a==="ff"){
-    SFX.page(); S.ffLog=[]; commitAlloc(S,counts(draft)); let n=1;
+    if(working(S)&&S.track!=="free"&&!S.onLeave&&draft.indexOf("work")<0&&!S.noWorkOk){ confirmNoWork=true; SFX.tap(); render(); return; }
+    SFX.page(); lastToast=null; S.planView=draft.map(k=>[k,(actionsOf(S).find(x=>x[0]===k)||[])[1]||k]); S.ffLog=[]; commitAlloc(S,counts(draft)); draft=[]; let n=1;
     let m0=S.stats.money;
     while(n<10&&S.phase==="alloc"&&!S.onLeave&&!S.flashes.length&&S.stats.burn<75&&!(m0>=0&&S.stats.money<0)){ const al=autoAlloc(S); if(!al) break; m0=S.stats.money; commitAlloc(S,al); n++; }
     const log=S.ffLog||[]; S.ffLog=null; afterStep(); if(log.length>1&&S.phase==="alloc"){ recent=log; slipClosed=false; slipMini=false; log.forEach((m,i)=>SFX.stamp(.1+i*.11)); }
   }
-  else if(a==="choose"){ M.cards[S.current]=1; choose(S,+b.dataset.i); afterStep(); saveMeta(); }
-  else if(a==="next-event"){
-    if(S.resignOpen){ S.resignOpen=false; S.result=null; S.slots=S.onLeave?0:slotsOf(S); if(S.queue.length) nextEvent(S); else S.phase="alloc"; }
-    else nextEvent(S);
-    if(S.phase==="alloc"&&!S.summary) recent=[];
-    SFX.tap(); afterStep(); }
+  else if(a==="choose"){ M.cards[S.current]=1; choose(S,+b.dataset.i); lastToast=null; autoResult(); afterStep(); saveMeta(); }
+  else if(a==="next-event"){ advanceResult(); SFX.tap(); afterStep(); }
   else if(a==="resign"){ S.current="resign"; S.resignOpen=true; S.phase="event"; SFX.tap(); }
   else if(a==="dismiss"){ S.flashes.shift(); save(); SFX.tap(); }
   else if(a==="path"){ selPath=selPath===b.dataset.p?null:b.dataset.p; SFX.tap(); }
@@ -736,7 +791,7 @@ document.addEventListener("keydown",e=>{
   const tgt=e.target;
   if(tgt&&tgt.tagName==="INPUT"){ if(e.key==="Enter"&&view==="title"){ const b=app.querySelector("[data-act=new]"); if(b) act("new",b); } return; }
   if(tgt&&tgt.getAttribute&&tgt.getAttribute("role")==="button"&&tgt.dataset&&tgt.dataset.act&&(e.key==="Enter"||e.key===" ")){ e.preventDefault(); act(tgt.dataset.act,tgt); return; }
-  if(e.key==="Escape"){ if(lifeOpen!=null){ act("life-close"); return; } if(view==="town"&&!colOpen){ act("to-title"); return; } if(cardOpen!=null){ act("card-close"); return; } if(guideStep!=null){ act("guide-skip"); return; } if(view==="rec"){ act("close-rec"); return; } if(colOpen){ act("close-col"); return; } if(S&&S.flashes&&S.flashes.length&&view==="game"){ act("dismiss"); return; } if(selPath){ selPath=null; render(); return; } }
+  if(e.key==="Escape"){ if(confirmNoWork){ act("confirm-close"); return; } if(lifeOpen!=null){ act("life-close"); return; } if(view==="town"&&!colOpen){ act("to-title"); return; } if(cardOpen!=null){ act("card-close"); return; } if(guideStep!=null){ act("guide-skip"); return; } if(view==="rec"){ act("close-rec"); return; } if(colOpen){ act("close-col"); return; } if(S&&S.flashes&&S.flashes.length&&view==="game"){ act("dismiss"); return; } if(selPath){ selPath=null; render(); return; } }
   if(!S||view!=="game") return;
   if(cardOpen!=null||guideStep!=null) return;
   if(S.flashes&&S.flashes.length){ if(e.key==="Enter"){ e.preventDefault(); act("dismiss"); } return; }

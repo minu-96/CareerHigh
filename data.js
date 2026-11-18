@@ -150,6 +150,10 @@ const CARDS=[
  {id:"peak_choice",required:true,title:"정점에서",text:"{lastpeak}. 올라올 곳은 다 올라왔다. 이제 어떻게 할까.",choices:[
    {text:"박수 칠 때 떠난다",effects:{do:"retire_now"},result:"마지막 인사는 짧게 했다."},
    {text:"정년까지 계속한다",hint:"다른 길의 정점도 노릴 수 있다",effects:{},result:"아직 할 일이 남았다."}]},
+ {id:"switch_pick",required:true,title:"어느 분야로 갈까",text:"지망을 바꾸기로 했다. 문이 열려 있는 곳은 세 군데다.",choices:[]},
+ {id:"retire_offer",required:true,title:"여기서 내려올까",text:"정점에 한 번 올라 봤다. 다음 자리를 찾을 수도 있고, 여기서 끝낼 수도 있다.",choices:[
+   {text:"여기서 은퇴한다",hint:"이 인생을 지금 마친다",effects:{do:"retire_self"},result:"마지막 출근길이 처음 출근길보다 짧게 느껴졌다."},
+   {text:"다음 자리를 찾는다",effects:{},result:"아직 할 일이 남았다."}]},
  {id:"resign",required:true,title:"사직서",text:"서랍 속 봉투를 꺼냈다. 정말 낼까.",choices:[
    {text:"내고 이직을 준비한다",hint:"올해 다시 지원한다",when:{track:["career","free"]},effects:{do:"quit_move"},result:"책상을 비우는 데 20분이 걸렸다."},
    {text:"내고 창업한다",hint:"창업 자금 {cost}",when:{track:["career","free"]},effects:{do:"found"},result:"퇴직금이 곧 자본금이다."},
