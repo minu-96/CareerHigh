@@ -1,7 +1,7 @@
 const fs=require('fs');const src=fs.readFileSync(process.argv[2]+'/data.js','utf8')+fs.readFileSync(process.argv[2]+'/jobs2.js','utf8')+fs.readFileSync(process.argv[2]+'/engine.js','utf8');
 const api=new Function(src+';return {newRun,beginYear,commitAlloc,choose,nextEvent,advance,actionsOf,cardById,visibleChoices,locked,titleOf,CARDS,slotsOf,networth,JOBS,ranksNow};')();
 const N=+process.argv[3]||800;
-const AVOID=['found','found_team','found_with_rival','found_family','quit_move','go_free','switch_job','retire_now','honor_retire','sell','severance','sabbatical','leave'];
+const AVOID=['found','found_team','found_with_rival','found_family','quit_move','go_free','switch_job','retire_now','retire_self','honor_retire','sell','severance','sabbatical','leave'];
 const PREF={org:['politics','mad','night','body','loyal'],craft:['master','lifelong','hands','body','night'],biz:['eye','mad','night','body','nerve'],fame:['speaker','body','night','lifelong'],wealth:['compound','frugal','body','night'],life:['family','calm','body'],random:[]};
 function plan(s,style,R){
   const acts=api.actionsOf(s).map(a=>a[0]);const al={};const add=k=>{if(acts.includes(k))al[k]=(al[k]||0)+1;else al.rest=(al.rest||0)+1;};
@@ -20,7 +20,7 @@ function plan(s,style,R){
 }
 const out={};
 for(const style of ['random','org','craft','biz','fame','wealth','life']){
-  const ends={},peaks={},best={org:0,craft:0,biz:0,fame:0,wealth:0,life:0};let errs=0,evs=0,yrs=0,any=0,nw=[];const seen={};
+  const ends={},peaks={},best={org:0,craft:0,biz:0,fame:0,wealth:0,life:0};let errs=0,evs=0,yrs=0,any=0,nw=[],gd=0;const seen={};
   for(let i=1;i<=N;i++){
     let r=i*7919+style.length;const R=()=>{r=(r*1103515245+12345)&0x7fffffff;return r/0x7fffffff;};
     try{
@@ -42,11 +42,11 @@ for(const style of ['random','org','craft','biz','fame','wealth','life']){
       for(const k of Object.keys(s.stats))if(!Number.isFinite(s.stats[k])){errs++;console.log('NaN',k);}
       ends[s.final.kind]=(ends[s.final.kind]||0)+1;if(s.final.peaks.length)any++;
       for(const p of s.final.peaks)peaks[p.path]=(peaks[p.path]||0)+1;
-      for(const p in best)best[p]+=s.best[p];nw.push(api.networth(s));
+      for(const p in best)best[p]+=s.best[p];nw.push(api.networth(s));gd+=Object.keys(s.goalsDone||{}).length;
     }catch(e){errs++;console.log('ERR',style,i,e.stack.split('\n').slice(0,3).join(' | '));if(errs>4)process.exit(1);}
   }
   nw.sort((a,b)=>a-b);for(const p in best)best[p]=+(best[p]/N).toFixed(2);
-  console.log(style.padEnd(7),'peak%',(any/N*100).toFixed(1),JSON.stringify(peaks),'ends',JSON.stringify(ends),'avgRank',JSON.stringify(best),'nwMed',nw[N>>1],'ev/yr',(evs/yrs).toFixed(2),'errs',errs);
+  console.log(style.padEnd(7),'peak%',(any/N*100).toFixed(1),JSON.stringify(peaks),'ends',JSON.stringify(ends),'avgRank',JSON.stringify(best),'nwMed',nw[N>>1],'ev/yr',(evs/yrs).toFixed(2),'goals',(gd/N).toFixed(2),'errs',errs);
   out[style]=seen;
 }
 const all=new Set();for(const k in out)for(const id in out[k])all.add(id);

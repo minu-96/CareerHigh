@@ -99,7 +99,7 @@ function beginYear(s){
 function actionsOf(s){ return ACTIONS[s.track].filter(a=>a[0]!=="invest"||s.age>=25).map(a=>[a[0],a[0]==="craft"?opusOf(s):A[a[1]][0],A[a[1]][1]]); }
 
 function commitAlloc(s,alloc){
-  s.lastAlloc=Object.assign({},alloc); s.summary=null;
+  s.lastAlloc=Object.assign({},alloc); s.lastAllocTrack=s.track; s.summary=null;
   const sk=s.stats.skill, n=k=>alloc[k]||0, c=s.counters;
   if(s.onLeave){ addBurn(s,-12,true); s.stats.life+=6; logAdd(s,"한 해를 쉬었다"); }
   for(let i=0;i<n("work");i++){
@@ -194,6 +194,7 @@ function choiceChance(s,ch){
 }
 function cardChoices(s,card){
   if(card.id==="perk") return (s.perkOffer||[]).map(id=>{ const p=PERKS.find(x=>x.id===id); return {text:p.name,hint:p.desc,perkId:id,effects:{},result:"이제 "+p.name+"이 내 것이다."}; });
+  if(card.id==="switch_pick") return (s.switchOffer||[]).map(id=>{ const J=JOBS[id]; return {text:J.name,hint:J.titles[1]+"부터 시작, 조직의 정점은 "+J.peaks.org,effects:{do:"switch_to:"+id},result:J.name+" 분야로 간다. 작은 곳의 "+J.titles[1]+" 자리다."}; });
   return card.choices;
 }
 function visibleChoices(s,card){ return cardChoices(s,card).map((c,i)=>({c:c,i:i})).filter(x=>matches(s,x.c.when)); }
@@ -265,6 +266,7 @@ function found(s,startStage,free,label){
   resumeAdd(s,s.company+" 창업"); cardIssue(s); mark(s,"biz",s.company+" 창업"); flash(s,"found",s.company,"대표 "+s.name+". 오늘부터 월급을 주는 쪽이다.");
 }
 function dropDream(s){ if(!JOBS[s.job].needUniv) return; const old=JOBS[s.job].name; s.job=pick(s,Object.keys(JOBS).filter(k=>!JOBS[k].needUniv)); s.pendingText=old+"의 꿈은 접었다. "+JOBS[s.job].name+" 쪽으로 간다."; logAdd(s,old+" 지망을 접었다",true); }
+function offerRetire(s){ if(s.peaks.length&&!s.ending&&s.queue.indexOf("retire_offer")<0) s.queue.unshift("retire_offer"); }
 function doAct(s,a){
   const j=job(s), unit=RULES.profitUnit[Math.max(1,s.stage)];
   if(a==="go_univ"){ s.edu="univ"; s.gradAge=s.age+(j.needUniv?7:5); resumeAdd(s,j.needUniv?"의과대학 합격":"4년제 대학 합격"); }
@@ -273,16 +275,18 @@ function doAct(s,a){
   else if(a==="join_big") join(s,"big");
   else if(a==="join_small") join(s,"small");
   else if(a==="apply_fail"){ if(s.track==="school") resumeAdd(s,EDU[s.edu]+" 졸업"); s.track="rest"; s.counters.rejections++; cardIssue(s); }
-  else if(a==="switch_job"){ const others=Object.keys(JOBS).filter(k=>k!==s.job&&!JOBS[k].needUniv); s.job=pick(s,others); if(s.everJoined){ s.careerStage=Math.max(1,s.careerStage-1); s.stats.skill*=0.6; } join(s,"small"); s.pendingText="계획에 없던 길이다. "+JOBS[s.job].name+" 분야에서 다시 시작한다."; }
-  else if(a==="close_biz"){ resumeAdd(s,s.company+" 정리"); mark(s,"bad",s.company+" 정리"); if(s.stats.money<0) s.stats.money=Math.round(s.stats.money*0.5); s.track="rest"; s.stage=0; s.careerStage=Math.max(1,s.prevCareerStage||1); cardIssue(s); }
+  else if(a==="switch_job"){ const pool=Object.keys(JOBS).filter(k=>k!==s.job&&!JOBS[k].needUniv), offer=[]; while(offer.length<3&&pool.length){ const k=pick(s,pool); pool.splice(pool.indexOf(k),1); offer.push(k); } s.switchOffer=offer; s.queue.unshift("switch_pick"); }
+  else if(a.indexOf("switch_to:")===0){ s.job=a.slice(10); if(s.everJoined){ s.careerStage=Math.max(1,s.careerStage-1); s.stats.skill*=0.6; } join(s,"small"); s.switchOffer=null; s.pendingText=JOBS[s.job].name+" 분야에서 다시 시작한다."; }
+  else if(a==="retire_self"){ s.ending="self"; logAdd(s,"스스로 자리에서 내려왔다"); }
+  else if(a==="close_biz"){ resumeAdd(s,s.company+" 정리"); mark(s,"bad",s.company+" 정리"); if(s.stats.money<0) s.stats.money=Math.round(s.stats.money*0.5); s.track="rest"; s.stage=0; s.careerStage=Math.max(1,s.prevCareerStage||1); cardIssue(s); offerRetire(s); }
   else if(a==="poached"){ s.counters.jobChanges++; let c=pick(s,j.big); if(c===s.company) c=pick(s,j.big); s.company=c; s.companyMult=1.2; s.stage=Math.min(5,s.stage+1); s.pp=0; s.salary=Math.max(Math.round(s.salary*1.3),Math.round(RULES.salary[s.stage]*j.rate*1.2)); makeBoss(s); s.counters.yearsAtStage=0; s.counters.tenure=0; resumeAdd(s,c+" 이직 ("+j.titles[s.stage]+")"); cardIssue(s); mark(s,"job",c+" 스카우트"); }
   else if(a==="go_free"){ if(s.track==="school") resumeAdd(s,EDU[s.edu]+" 졸업"); leaveWork(s); s.track="free"; s.stage=0; s.company=""; if(s.rival&&s.rival.status==="same") s.rival.status="other"; resumeAdd(s,j.free+"로 독립"); cardIssue(s); mark(s,"job","프리랜서 독립"); }
   else if(a==="fri_refuse"){ if(s.boss==="overtime"){ s.stats.rep-=4; s.pendingText="월요일 아침, 상사의 표정이 보고서보다 먼저 왔다."; } else s.pendingText="월요일에 해도 아무 일 없었다."; }
   else if(a==="move"){ s.counters.jobChanges++; let c=pick(s,j.big); if(c===s.company) c=pick(s,j.small); s.company=c; s.companyMult=1.2; s.salary=Math.round(s.salary*1.2); s.pp=0; makeBoss(s); s.counters.yearsAtStage=0; s.counters.tenure=0; if(s.rival&&s.rival.status==="same") s.rival.status="other"; resumeAdd(s,c+" 이직 ("+j.titles[s.stage]+")"); cardIssue(s); }
   else if(a==="reboss"){ const old=s.boss; makeBoss(s); if(s.boss===old) makeBoss(s); }
-  else if(a==="quit_move"){ if(s.track==="career") logAdd(s,s.company+"에 사직서를 냈다"); leaveWork(s); s.track="rest"; s.stage=0; cardIssue(s); }
+  else if(a==="quit_move"){ if(s.track==="career") logAdd(s,s.company+"에 사직서를 냈다"); leaveWork(s); s.track="rest"; s.stage=0; cardIssue(s); offerRetire(s); }
   else if(a==="fired"){ mark(s,"bad","회사를 나옴"); leaveWork(s); s.track="rest"; s.stage=0; s.stats.life-=8; cardIssue(s); }
-  else if(a==="severance"){ s.stats.money+=s.salary; leaveWork(s); s.track="rest"; s.stage=0; cardIssue(s); }
+  else if(a==="severance"){ s.stats.money+=s.salary; leaveWork(s); s.track="rest"; s.stage=0; cardIssue(s); offerRetire(s); }
   else if(a==="honor_retire"){ s.stats.money+=s.salary*2; leaveWork(s); s.track="free"; s.stage=0; s.company=""; resumeAdd(s,"명예퇴직, "+j.free+"로 독립"); cardIssue(s); }
   else if(a==="found") found(s,1,false);
   else if(a==="found_team"){ found(s,2,false); s.stats.rep+=3; }
@@ -294,7 +298,7 @@ function doAct(s,a){
   else if(a==="take_invest") s.stats.money+=unit*2;
   else if(a==="mortgage"){ s.stats.money+=Math.round(s.assets*0.6); s.assets=Math.round(s.assets*0.4); }
   else if(a==="loanshark"){ s.stats.money+=Math.round(unit*0.4); s.flags.loanshark=(s.flags.loanshark||0)+Math.round(unit*0.6); }
-  else if(a==="sell"){ s.stats.money+=unit*3; resumeAdd(s,s.company+" 매각"); s.track="career"; s.stage=5; s.pp=0; s.company=pick(s,j.big); s.companyMult=1.2; s.salary=Math.round(RULES.salary[5]*j.rate*1.2); makeBoss(s); s.counters.yearsAtStage=0; s.counters.tenure=0; resumeAdd(s,s.company+" 합류 ("+j.titles[5]+")"); cardIssue(s); }
+  else if(a==="sell"){ s.stats.money+=unit*3; resumeAdd(s,s.company+" 매각"); s.track="career"; s.stage=5; s.pp=0; s.company=pick(s,j.big); s.companyMult=1.2; s.salary=Math.round(RULES.salary[5]*j.rate*1.2); makeBoss(s); s.counters.yearsAtStage=0; s.counters.tenure=0; resumeAdd(s,s.company+" 합류 ("+j.titles[5]+")"); cardIssue(s); offerRetire(s); }
   else if(a==="peak"){ s.stage=6; s.pp=0; if(s.track==="career") s.salary=Math.round(RULES.salary[6]*j.rate*s.companyMult); resumeAdd(s,titleOf(s)+" 취임"); cardIssue(s); checkPeaks(s); }
   else if(a==="retire_now") s.ending="clear";
   else if(a==="marry"){ mark(s,"life","결혼"); s.flags.married=true; delete s.flags.partner; delete s.flags.divorced; logAdd(s,"결혼했다"); }
@@ -468,7 +472,7 @@ function yearEnd(s){
   for(const p in s.best) if(s.best[p]>before[p]&&p!=="org"&&p!=="biz") push(PATHS[p]+"의 길: "+rankName(s,p,s.best[p])+(s.best[p]>=5?" — 정점":""));
   if(sum.grade){ s.streak=(sum.grade==="S"||sum.grade==="A")?(s.streak||0)+1:0; sum.streak=s.streak; }
   checkGoals(s);
-  s.hist.push({age:s.age,life:st.life,burn:st.burn,nw:networth(s)});
+  s.hist.push({age:s.age,life:st.life,burn:st.burn,nw:networth(s),rest:(s.lastAlloc&&s.lastAlloc.rest)||0,work:(s.lastAlloc&&s.lastAlloc.work)||0});
   s.summary=sum; s.yearDone=true;
   if(s.ffLog) s.ffLog.push(sum);
   if(s.ending){ finish(s); s.phase="ending"; return; }
@@ -498,7 +502,10 @@ function finish(s){
   if(s.final) return;
   const f={kind:s.ending,title:"",scene:"",verdict:"",hidden:null,ranks:Object.assign({},s.best)};
   const peaks=s.peaks.slice();
-  if(s.ending==="burnout"){ f.title="조기 은퇴"; f.scene="두 번째로 쓰러진 날, 의사는 차트를 덮었다. \"이제 그만하셔야 합니다.\""; f.verdict=s.age+"세, 몸이 먼저 사표를 냈다."; }
+  if(s.ending==="burnout"){ f.title="조기 은퇴"; f.scene="두 번째로 쓰러진 날, 의사는 차트를 덮었다. \"이제 그만하셔야 합니다.\""; f.verdict=s.age+"세, 몸이 먼저 사표를 냈다.";
+    const h=s.hist.slice(-6); if(h.length>=2){ const last=h.slice(1), rest=last.reduce((a,x)=>a+(x.rest||0),0)/last.length, life=Math.round(last.reduce((a,x)=>a+x.life,0)/last.length), up=Math.round((h[h.length-1].burn-h[0].burn)/(h.length-1));
+      f.cause="마지막 "+last.length+"년, 휴식은 한 해 평균 "+rest.toFixed(1)+"칸, 일상은 평균 "+life+"."+(up>0?" 피로가 해마다 "+up+"씩 더 쌓였다.":"")+(life<40?" 일상이 40 아래면 해가 바뀌어도 피로가 거의 풀리지 않는다.":""); } }
+  else if(s.ending==="self"){ f.title="스스로 내려왔다"; f.scene="책상을 정리하는 데 한 시간이 걸렸다. 아무도 붙잡지 않았고, 그게 좋았다."; f.verdict=(peaks.length?peaks.map(p=>p.age+"세에 "+p.name).join(", ")+". ":"")+s.age+"세, 내려올 때를 내가 정했다."; }
   else if(s.ending==="bankrupt"){ f.title="파산"; f.scene="법원 복도는 길었다. 서류에 도장을 찍는 데는 10초가 걸렸다."; f.verdict=s.age+"세, 숫자가 나를 이겼다."; }
   else{
     f.scene=s.ending==="clear"?"떠나는 날은 조용했다. 꽃다발은 생각보다 무거웠다.":"65세, 마지막 출근. 책상 서랍에서 20년 된 볼펜이 나왔다.";
@@ -510,7 +517,7 @@ function finish(s){
     }
   }
   const c=s.counters;
-  if(s.ending==="retire"||s.ending==="clear"){
+  if(s.ending==="retire"||s.ending==="clear"||s.ending==="self"){
     if(peaks.length>=3) f.hidden="르네상스인";
     else if(s.flags.closed_once&&s.peakAt.biz) f.hidden="오뚝이";
     else if(peaks.length&&Math.min.apply(null,peaks.map(p=>p.age))<42) f.hidden="최연소";
@@ -565,4 +572,112 @@ function goalTest(s,id){
 }
 function checkGoals(s){
   for(const id of s.goals){ if(s.goalsDone[id]==null&&goalTest(s,id)){ s.goalsDone[id]=s.age; const g=GOALS.find(x=>x.id===id); logAdd(s,"버킷리스트 달성: "+g.t); mark(s,"life",g.t); flash(s,"goal",g.t,"버킷리스트 "+Object.keys(s.goalsDone).length+"/3. 이건 이력서에 안 써도 내가 안다."); } }
+}
+
+
+/* ---------- 9판: 미리보기, 다가오는 결정, 진행도 ---------- */
+function defaultPlan(s){
+  if(s.track==="school") return {study:2,family:1,rest:1};
+  if(s.track==="rest") return {study:2,network:1,rest:1};
+  return {work:2,study:1,rest:1};
+}
+function burnOf(s,k,n){
+  let b=0;
+  for(let i=0;i<n;i++){
+    let x=0;
+    if(k==="work"){ x=8; if(has(s,"steel")) x*=0.75; if(perk(s,"night")) x*=0.7; if(s.track==="career"&&s.boss==="overtime") x+=2; }
+    else if(k==="study"||k==="fame") x=3; else if(k==="craft") x=4; else if(k==="part") x=5; else if(k==="club") x=2;
+    else if(k==="family"){ x=-6; if(has(s,"workaholic")) x*=0.7; if(perk(s,"calm")) x*=1.4; }
+    else if(k==="rest"){ x=s.age>=45?-12:-15; if(has(s,"workaholic")) x*=0.7; if(perk(s,"calm")) x*=1.4; }
+    if(x>0&&s.origin==="working") x*=0.9;
+    b+=x;
+  }
+  return b;
+}
+function previewAlloc(s,al){
+  const n=k=>al[k]||0, st=s.stats, o={grade:null,burn:0,life:0,money:0,burnEnd:0,lifeEnd:0,rec:0,notes:[]};
+  if(s.onLeave) return o;
+  let burn=st.burn, life=st.life, money=0;
+  for(const k in al) burn+=burnOf(s,k,al[k]);
+  burn=Math.max(0,Math.min(100,burn));
+  if(perk(s,"multi")) burn+=6;
+  for(let i=0;i<n("family");i++){ let g=Math.max(1,8*(1-life/120)); if(perk(s,"family")) g*=2; if(perk(s,"calm")) g*=1.4; if(has(s,"workaholic")) g*=0.7; life+=g; }
+  if(life>35) life-=4+(life-35)/12-(s.flags.married||s.flags.pet?1.5:0);
+  if(working(s)&&n("work")>=3) life-=3;
+  if(burn>=70) life-=3;
+  if(s.kids.length&&life<90) life+=1;
+  life=Math.max(0,Math.min(100,life));
+  let rec=s.age<40?5:s.age<50?3:1; if(perk(s,"body")) rec+=5; if(life>=60) rec+=3; if(life<40) rec-=7; if(life<20) rec-=3;
+  o.rec=rec; burn=Math.max(0,Math.min(100,burn-rec));
+  if(s.track==="career"||s.track==="founder"){
+    let perf=n("work")*10*(0.5+st.skill/100); if(s.track==="career") perf-=3*n("fame");
+    if(s.track==="career") perf*=(s.boss==="credit"?0.85:s.boss==="overtime"?1.1:1)*(perk(s,"calm")?0.9:1)*(perk(s,"loyal")&&s.counters.tenure>=5?1.15:1);
+    perf=Math.round(perf*eraMult(s)+st.rep/10);
+    o.grade=RULES.grade.find(x=>perf>=x[1])[0];
+  }
+  money+=300*n("part")-100*n("network");
+  if(s.track==="career"){ const rate=0.3+(has(s,"thrift")?0.05:0)+(perk(s,"frugal")?0.08:0)+(s.flags.married?0.05:0); money+=Math.round(s.salary*rate); }
+  else if(s.track==="free") money+=Math.round(n("work")*(st.skill*12+st.fame*15+st.net*5)*job(s).rate*eraMult(s))-1500;
+  else if(s.track==="rest") money-=400;
+  if(s.track!=="school") money-=s.kids.filter(b=>s.age-b<22).length*600;
+  if(s.track==="founder") o.notes.push("사업 손익은 결산 때 정해진다");
+  if(n("invest")) o.notes.push("투자 결과는 운에 달렸다");
+  o.burnEnd=Math.round(burn); o.burn=Math.round(burn-st.burn); o.lifeEnd=Math.round(life); o.life=Math.round(life-st.life); o.money=money;
+  return o;
+}
+function upcoming(s){
+  const out=[], fmt=(age)=>age===s.age?"올해 끝":age===s.age+1?"내년 끝":(age-s.age)+"년 뒤";
+  if(s.track==="school"&&s.gradAge-1>=s.age){
+    const at=s.gradAge-1, it={when:fmt(at),title:"졸업 진로",lines:[]};
+    if(s.edu==="gen"||s.edu==="voc"){
+      it.lines.push({t:"4년제: 능력 22 (지금 "+s.stats.skill+")",ok:s.stats.skill>=22});
+      it.lines.push({t:"4년제 등록금 2,000만, 전문대 1,000만 (지금 "+won(s.stats.money)+")",ok:s.stats.money>=1000});
+      it.lines.push({t:"바로 일을 시작해도 된다",ok:true});
+    } else {
+      const p=choiceChance(s,{chance:30,chanceFn:"apply"});
+      it.lines.push({t:"지원서: 이름 있는 곳 합격률 지금 "+p+"%",ok:p>=50});
+      it.lines.push({t:"합격률은 능력과 인맥으로 오른다",ok:true});
+    }
+    out.push(it);
+  }
+  if(s.track==="rest"){ const p=choiceChance(s,{chance:30,chanceFn:"apply"}); out.push({when:"올해 끝",title:"구직",lines:[{t:"이름 있는 곳 합격률 지금 "+p+"%",ok:p>=50},{t:"작은 곳은 확정 합격",ok:true}]}); }
+  if((s.track==="career"||s.track==="founder")&&s.stage>=1&&s.stage<=4&&promoNeed(s)){
+    const need=promoNeed(s).pp, lack=promoLack(s), it={when:"다음",title:s.track==="career"?"다음 승진":"회사 성장",lines:[{t:(s.track==="career"?"승진":"성장")+" 점수 "+s.pp+"/"+need,ok:s.pp>=need}]};
+    for(const l of lack) it.lines.push({t:l+" 필요",ok:false});
+    out.push(it);
+  }
+  if((s.track==="career"||s.track==="founder")&&s.stage===5){ const lack=promoLack(s); out.push({when:"다음",title:"정점 심사",lines:[{t:"점수 "+s.pp+"/"+promoNeed(s).pp,ok:s.pp>=promoNeed(s).pp}].concat(lack.map(l=>({t:l+" 필요",ok:false})))}); }
+  if(working(s)&&s.perks.length<5&&s.nextPerk-s.age<=1&&s.nextPerk>=s.age) out.push({when:fmt(s.nextPerk),title:"특성 선택",lines:[{t:"특성 3개 중 1개를 고른다",ok:true}]});
+  return out;
+}
+function pathProgress(s,p){
+  const r=ranksNow(s)[p]; if(r>=5) return 1;
+  const st=s.stats, frac=(v,a,b)=>Math.max(0,Math.min(1,(v-a)/((b-a)||1)));
+  if(p==="org") return s.track==="career"&&promoNeed(s)?frac(s.pp,0,promoNeed(s).pp):0;
+  if(p==="biz") return s.track==="founder"&&promoNeed(s)?frac(s.pp,0,promoNeed(s).pp):0;
+  if(p==="craft"){ const c=RULES.craft[r], prev=r?RULES.craft[r-1][0]:0; return frac(Math.min(st.skill,c[0]),prev,c[0])*(c[1]&&s.mp<c[1]?0.9:1); }
+  if(p==="fame") return frac(st.fame,r?RULES.fame[r-1]:0,RULES.fame[r]);
+  if(p==="wealth") return frac(networth(s),r?RULES.wealth[r-1]:0,RULES.wealth[r]);
+  return frac(s.lifeYears,r?RULES.lifeYears[r-1]:0,RULES.lifeYears[r]);
+}
+function goalProgress(s,id){
+  const st=s.stats, nw=networth(s);
+  switch(id){
+    case "house35": return {now:s.flags.house?1:0,need:1,text:s.age<35?"35세까지 "+(35-s.age)+"년. 집 사는 사건은 현금이 있을 때 온다":"35세가 지났다"};
+    case "marry": return {text:s.flags.partner?"연애 중이다. 가족·일상에 칸을 쓰면 사건이 온다":"가족·일상, 연애·친구에 칸을 쓰면 인연이 온다"};
+    case "kid2": return {now:s.kids.length,need:2,text:"아이 "+s.kids.length+"/2"};
+    case "nw10": return {now:nw,need:100000,text:"순자산 "+won(nw)+" / 10억"};
+    case "mp1": return {now:s.prog,need:4,text:opusOf(s)+" 진행 "+Math.min(s.prog,4)+"/4, 다 차면 도전"};
+    case "stage4": return {now:s.track==="career"?s.stage:0,need:4,text:s.track==="career"?"지금 "+s.stage+"단계":"회사에 다녀야 한다"};
+    case "found": return {text:"사직서에서 창업을 고르면 된다 ("+won(job(s).cost)+")"};
+    case "book": return {text:"명성을 올리면 책이나 방송 제안이 온다"};
+    case "fame40": return {now:st.fame,need:40,text:"명성 "+st.fame+"/40, 대외 활동으로 오른다"};
+    case "noburn": return {text:s.flags.burnout_once?"이미 한 번 쓰러졌다":"번아웃 100에 닿지 않으면 된다 (지금 "+st.burn+")"};
+    case "life10": return {now:s.lifeYears,need:10,text:"좋은 해 "+s.lifeYears+"/10 (일상 75 이상, 번아웃 55 미만인 해)"};
+    case "skill80": return {now:st.skill,need:80,text:"능력 "+st.skill+"/80, 공부와 자기계발로 오른다"};
+    case "pet": return {text:"가족·일상에 칸을 쓰면 반려동물 사건이 온다"};
+    case "free": return {text:"사직서나 구직 때 프리랜서를 고르면 된다"};
+    case "rich30": return {now:nw,need:10000,text:s.age<30?"순자산 "+won(nw)+" / 1억, 30세까지 "+(30-s.age)+"년":"30세가 지났다"};
+  }
+  return {text:""};
 }
