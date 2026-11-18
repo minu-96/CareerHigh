@@ -105,6 +105,8 @@ function chipList(d){ return Object.keys(d).map(k=>{ const v=d[k], good=k==="bur
 function catOf(card){
   const w=card.when||{};
   if(card.required) return ["갈림길","var(--stamp)"];
+  if(w.ghost) return ["지난 인생","#9a7b4f"];
+  if(w.year) return ["시대","#4f5b6e"];
   if(w.job) return [JOBS[w.job].name,PCOLOR.craft];
   const tr=[].concat(w.track||[]);
   if(tr.length===1&&tr[0]==="founder") return ["사업",PCOLOR.biz];
@@ -328,7 +330,7 @@ function vGame(){
 }
 function vEventModal(){
   const card=cardById(S.current), cat=catOf(card);
-  return `<div class="modal" role="dialog" aria-modal="true" aria-label="${esc(fill(S,card.title))}"><div class="mcard" style="--pc:${cat[1]}"><span class="cat">${esc(cat[0])}</span><span class="age-tag">${S.age}세</span>
+  return `<div class="modal" role="dialog" aria-modal="true" aria-label="${esc(fill(S,card.title))}"><div class="mcard has-art" style="--pc:${cat[1]}"><span class="cat">${esc(cat[0])}</span><span class="age-tag">${card.when&&card.when.year?yearOf(S)+"년, ":""}${S.age}세</span>${catArt(card,cat,yearOf(S))}
     ${lastToast?`<div class="justnow"><span class="muted">방금</span> <b>${esc(lastToast.title)}</b> ${esc(lastToast.text)}${Object.keys(lastToast.delta||{}).length?` <span class="chips inline">${chipList(lastToast.delta)}</span>`:""}</div>`:""}
     <h2 class="disp">${esc(fill(S,card.title))}</h2><p class="body">${esc(fill(S,card.text))}</p>
     <p class="mstats">${["skill","rep","net","fame","life","burn"].map(k=>`<span>${STAT[k]} <b>${S.stats[k]}</b></span>`).join("")}<span>현금 <b>${won(S.stats.money)}</b></span></p>
@@ -429,13 +431,15 @@ function vCollection(){
   return `<div class="panel-back" data-act="close-col"></div><div class="panel" role="dialog" aria-modal="true" aria-label="수집첩"><div class="panel-head"><h2 class="disp">수집첩</h2><button class="hbtn" data-act="close-col">닫기</button></div><div class="panel-body">
     <div class="sheet"><div class="sheet-head"><h2 class="disp">정점 도장판</h2><span class="aside">${M.runs}번의 인생</span></div>
     <div class="stampgrid" role="img" aria-label="정점 도장 ${got}개, 전체 ${jobs.length*paths.length}개"><span></span>${paths.map(p=>`<span class="sg-h">${PATHS[p]}</span>`).join("")}
-      ${jobs.map(jb=>`<span class="sg-j">${JOBS[jb].name.split("·")[0].split(" ")[0]}</span>`+paths.map(p=>{ const a=M.stamps[jb+"|"+p]; return `<span class="sg-c ${a?"on":""}" style="--pc:${PCOLOR[p]}" title="${JOBS[jb].name}, ${PATHS[p]}${a?", "+a+"세에 달성":""}">${a?"정점":""}</span>`; }).join("")).join("")}</div>
+      ${jobs.map(jb=>`<span class="sg-j">${JOBS[jb].name.split("·")[0].split(" ")[0]}</span>`+paths.map(p=>{ const a=M.stamps[jb+"|"+p]; return `<span class="sg-c ${a?"on":""}" style="--pc:${PCOLOR[p]}" title="${JOBS[jb].name}, ${PATHS[p]}${a?", "+a+"세에 달성":""}">${a?`정점<small>${a}세</small>`:""}</span>`; }).join("")).join("")}</div>
     ${bar("정점 도장",got,jobs.length*paths.length)}${bar("엔딩",Object.keys(M.endings).length,ENDINGS.length)}${bar("별명",Object.keys(M.nicks).length,NICKS.length)}${bar("사건 카드",Math.min(CARD_TOTAL,Object.keys(M.cards).length),CARD_TOTAL)}${bar("출신",Object.keys(M.origins).length,ORIGINS.length)}${bar("버킷리스트",Object.keys(M.goals).length,GOALS.length)}
     <p class="small"><span class="hl">${esc(nextHint())}</span></p></div>
     <div class="sheet"><div class="sheet-head"><h2 class="disp">명함 도감</h2><span class="aside">${dexCount(M.bcards)}/${CARD_DESIGNS}</span></div>
-      <p class="small muted">회사마다, 직급마다 명함이 다르다. 칸 하나가 직급 하나다.</p>
+      <p class="small muted">회사마다, 직급마다 명함이 다르다. 칸 하나가 직급 하나이고, 같은 칸이라도 시대마다 인쇄 양식이 달라서, 다섯 시대를 다 모으면 칸이 꽉 찬다.</p>
+      <div class="dex-sum"><span><b>${dexCount(M.bcards)}</b>/${CARD_DESIGNS}<small>명함</small></span><span><b>${eraCount(M.bcards)}</b>/${CARD_DESIGNS*5}<small>시대 양식</small></span><span><b>${RARE.filter(r=>M.bcards["rare|"+r[0]]).length}</b>/${RARE.length}<small>드문 변형</small></span></div>
+      <div class="rare-row">${RARE.map(r=>`<span class="rare ${M.bcards["rare|"+r[0]]?"on":""}" title="${esc(r[2])}">${esc(r[1])}</span>`).join("")}</div>
       <div class="dex">${cardGroups().map((g,gi,arr)=>{ const head=(gi===0||(arr[gi-1].job!==g.job)||g.own&&!arr[gi-1].own||g.free||g.misc)&&!(g.own&&arr[gi-1].own)?`<p class="dex-h">${g.own?"내 회사":g.free?"회사 밖":g.misc?"그 밖":JOBS[g.job].name}</p>`:""; const col=g.brand?g.brand.c:"var(--ink)";
-        return head+`<div class="dex-row" style="--pc:${col}">${g.brand?markSvg(g.brand.mark,col,"#fff"):markSvg("mono",col,"#fff",g.label.charAt(0))}<span>${esc(g.label)}</span><span class="dex-dots">${g.keys.map(k=>`<i class="${M.bcards[k]?"on":""}"></i>`).join("")}</span></div>`; }).join("")}${(()=>{ const gd=ghostDex(M.bcards), ks=Object.keys(gd); return ks.length?`<p class="dex-h">지난 인생의 회사</p>`+ks.map(co=>{ const col=OWN_COLORS[hashStr(co)%OWN_COLORS.length]; return `<div class="dex-row" style="--pc:${col}">${markSvg(["square","ring","star","arcs","sprout"][hashStr(co)%5],col,"#fff")}<span>${esc(co)}</span><span class="dex-dots">${[1,2,3,4,5,6].map(n=>`<i class="${gd[co][n]?"on":""}"></i>`).join("")}</span></div>`; }).join(""):""; })()}</div></div>
+        return head+`<div class="dex-row" style="--pc:${col}">${g.brand?markSvg(g.brand.mark,col,"#fff"):markSvg("mono",col,"#fff",g.label.charAt(0))}<span>${esc(g.label)}</span><span class="dex-dots">${g.keys.map(k=>`<i class="${M.bcards[k]?"on":""}" style="--e:${eraOf(M.bcards,k)}"></i>`).join("")}</span></div>`; }).join("")}${(()=>{ const gd=ghostDex(M.bcards), ks=Object.keys(gd); return ks.length?`<p class="dex-h">지난 인생의 회사</p>`+ks.map(co=>{ const col=OWN_COLORS[hashStr(co)%OWN_COLORS.length]; return `<div class="dex-row" style="--pc:${col}">${markSvg(["square","ring","star","arcs","sprout"][hashStr(co)%5],col,"#fff")}<span>${esc(co)}</span><span class="dex-dots">${[1,2,3,4,5,6].map(n=>`<i class="${gd[co][n]?"on":""}"></i>`).join("")}</span></div>`; }).join(""):""; })()}</div></div>
     ${hist.length?`<div class="sheet"><div class="sheet-head"><h2 class="disp">지난 인생들</h2><span class="aside">${hist.length}명</span></div><p class="small muted">누르면 그 인생의 명함과 요약이 나온다.</p>${residentsBlock(hist,140)}</div>`:""}
   </div></div>`;
 }
@@ -445,7 +449,7 @@ function vTitle(){
   const run=store.get("careerhigh.run");
   const demo={org:3,craft:5,biz:2,fame:4,wealth:1,life:5};
   return `<div class="title"><div class="scene">${city({age:23,vb:"0 -170 600 442",ranks:demo,peaks:{craft:1,life:1},label:"여섯 동의 건물이 선 아침의 도시"})}
-      <div class="logo"><h1>커리어<br>하이</h1><p>열일곱에 시작해 예순다섯에 끝나는, 한 사람의 하루</p></div></div>
+      <div class="logo"><h1>커리어<br>하이</h1><p>열일곱에 시작해 예순다섯에 끝나는, 한 사람의 하루</p>${(()=>{ const hs=getHist().filter(r=>r.card).slice(0,3); return hs.length?`<button class="title-fan" data-act="town" aria-label="지난 인생 ${getHist().length}명의 명함. 커리어 타운으로">${hs.map((r,i)=>`<span class="fan-card" style="--i:${i-(hs.length-1)/2}">${cardHtml(r.card,{w:118})}</span>`).join("")}</button>`:""; })()}</div></div>
     <div class="title-panel"><div class="inner">
       <p class="lede">출신도 학력도 고를 수 없다. 꼭대기는 여섯 곳이고, 한 해에 쓸 수 있는 칸은 네 개뿐이다.</p>
       <label class="small muted" for="nm" style="text-align:center">이름 (비워 두면 지어 준다)</label>
@@ -641,9 +645,10 @@ function vTown(){
   const slot=i=>+((i+.5)/Math.max(1,walkers.length)*100).toFixed(2);
   if(!town||town.n!==walkers.length) town={n:walkers.length,raf:0,last:0,chars:walkers.map((r,i)=>({hx:slot(i),x:slot(i)+((i%2)?3:-3),dir:i%2?1:-1,sp:1.800+(hashStr(r.name||"x")%10)*.160,state:"walk",until:0,cool:0,say:"",say2:null}))};
   return `<div class="town"><header class="hud"><div class="who"><b>커리어 타운</b><span>지금까지 살아 본 ${hist.length}명이 사는 동네</span></div><span></span><div class="hud-btns"><button class="hbtn" data-act="to-title">나가기</button></div></header>
-    <div class="scene town-stage">${city({age:age,vb:"0 -60 600 332",ranks:best,peaks:peaks,fade:true,label:"지난 인생들이 올린 층이 모인 도시"})}
+    <div class="scene town-stage"><div class="town-wide" style="--n:${Math.max(3,walkers.length)}">${city({age:age,vb:"0 -60 600 332",ranks:best,peaks:peaks,fade:true,label:"지난 인생들이 올린 층이 모인 도시"})}
       <div class="street" style="--n:${Math.max(3,walkers.length)}">${walkers.map((r,i)=>{ const h=homeOf(r); return `<button class="bld ${h.kind}${walkers.length>5&&i%2?" back":""}${i===0?" first":""}${i===walkers.length-1&&i>0?" last":""}" data-act="life" data-i="${i}" style="left:${slot(i)}%" aria-label="${esc(h.label)}. 인생 요약 보기" title="${esc(h.label)}">${buildingSvg(h)}${h.kind==="company"?`<span class="bsign">${esc(h.name)}</span>`:""}</button>`; }).join("")}</div>
       <div class="walkers">${walkers.map((r,i)=>`<button class="walker" id="wk-${i}" data-act="life" data-i="${i}" style="left:${town.chars[i].x}%;bottom:${4+(i*7)%13}px;z-index:${20-(i*7)%13}" aria-label="${esc(r.name)}, ${esc(r.job)}. 인생 요약 보기"><span class="bub" hidden></span><span class="fig">${personSvg(r,r.peaks&&r.peaks.length)}</span><span class="wname">${esc(r.name)}</span></button>`).join("")}</div>
+      </div>${walkers.length*88>window.innerWidth?`<span class="town-hint">밀어서 이웃 보기 →</span>`:""}
       ${hist.length?"":`<div class="town-empty"><b class="disp">아직 아무도 살지 않는다</b><span>한 인생을 끝까지 살면 그 사람이 이 동네로 이사 온다.</span></div>`}</div>
     <div class="town-body">
       ${hist.length?`<p class="small muted">길가의 건물은 그 사람이 사는 집이나 끝까지 이끈 회사다. 집은 자산의 길, 회사는 창업의 길 단계만큼 크다. 뒤쪽 도시의 층은 지금까지의 인생들이 각 길에서 가장 높이 오른 기록이다. 사람이나 건물을 누르면 그 인생의 명함과 요약이 나온다.</p>${residentsBlock(hist)}`:""}
@@ -746,7 +751,9 @@ function afterStep(){
 }
 function recordCards(){
   if(!S) return; S.cardFinds=S.cardFinds||[]; let ch=false;
-  for(const c of S.cards){ const k=cardKey(c); if(!M.bcards[k]){ M.bcards[k]=1; S.cardFinds.push(k); ch=true; } }
+  for(const c of S.cards){ const k=cardKey(c); if(!M.bcards[k]){ M.bcards[k]=1; S.cardFinds.push(k); ch=true; }
+    if(k!=="none"&&k.indexOf("stu|")){ const ek="era|"+k+"|"+cardEra(c.year); if(!M.bcards[ek]){ M.bcards[ek]=1; ch=true; } }
+    if(c.v&&!M.bcards["rare|"+c.v]){ M.bcards["rare|"+c.v]=1; S.cardFinds.push("rare|"+c.v); ch=true; } }
   const ck=cardKey(cardInfoOf(S)); if(ck!==lastCardKey){ cardFlip=!!lastCardKey; lastCardKey=ck; }
   if(ch) saveMeta();
 }

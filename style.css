@@ -623,3 +623,144 @@ th .yr{display:block;font-size:10px;font-weight:500;color:var(--muted);line-heig
 .bld:focus-visible{outline:2px solid var(--hl);outline-offset:2px}
 .bsign{position:absolute;top:-14px;left:50%;transform:translateX(-50%);font-size:10px;font-weight:700;color:#fff;background:var(--c-biz);padding:0 4px;border-radius:3px;white-space:nowrap;max-width:max(100%,64px);overflow:hidden;text-overflow:ellipsis}
 .walkers{z-index:3}
+
+/* ---------- 11판: 명함 ---------- */
+/* 직급 마감 */
+.bc.s1{box-shadow:0 .05em .12em rgba(0,0,0,.14),0 .5em .8em -.7em rgba(0,0,0,.35)}
+.bc.s1:not(.t-block):not(.t-tech) .bc-co{color:#6b7280!important}
+.bc.s1.t-block .bc-co{opacity:.75}
+.t-corp.s4::before{width:1.15em}
+.t-block.s4::before{height:48%}
+.t-tech.s4::after{width:7em}
+.bc.s5{box-shadow:inset 0 0 0 .22em #c9a227,0 .15em .3em rgba(0,0,0,.18),0 1.6em 2em -1em rgba(0,0,0,.55)}
+.bc.s5 .bc-mark{filter:drop-shadow(0 .06em 0 rgba(255,255,255,.7)) drop-shadow(0 -.05em 0 rgba(0,0,0,.35))}
+/* 정점: 회사 색 바탕에 금박. 회사마다 다르다 */
+.t-lux.co6{background:radial-gradient(120% 140% at 18% 0%,color-mix(in srgb,var(--b) 72%,#000),color-mix(in srgb,var(--b) 30%,#000) 72%)}
+.t-lux.co6::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(135deg,rgba(255,255,255,.035) 0 .25em,transparent .25em .9em);pointer-events:none}
+.t-lux.co6 .bc-mark{filter:sepia(1) saturate(3) hue-rotate(-12deg) brightness(1.2)}
+/* 창업 4~5단계: 회사 색 띠 */
+.bc.own.s4:not(.t-lux):not(.t-kraft)::after,.bc.own.s5:not(.t-lux):not(.t-kraft)::after{content:"";position:absolute;left:0;right:0;bottom:0;height:.9em;background:var(--b)}
+
+/* 시대 양식 */
+.bc.e80:is(.t-corp,.t-block,.t-classic,.t-home,.t-free){background-color:#f6efdc;font-family:"Gowun Batang",serif;color:#2b241c}
+.bc.e80 .bc-name,.bc.e80 .bc-title,.bc.e80 .bc-co{text-shadow:0 0 .05em rgba(43,36,28,.55)}
+.bc.e80 .bc-en,.bc.e80 .bc-coen{display:none}
+.bc.e80 .bc-mark{filter:sepia(.5) saturate(.8)}
+.bc.e80 .bc-hj{font-size:.5em;letter-spacing:0;margin-left:.35em;opacity:.75;vertical-align:.35em}
+.bc.e80.t-block::before{opacity:.85}
+.bc.e90::after{content:"";position:absolute;left:0;right:0;bottom:0;height:.45em;background:linear-gradient(90deg,var(--b),#ff9bd2 55%,#ffe36e)}
+.bc.e90.t-tech::after{width:auto;right:0;bottom:0;left:0;height:.45em}
+.bc.e00 .bc-mark{filter:drop-shadow(0 .08em .08em rgba(0,0,0,.35))}
+.bc.e00::after{content:"";position:absolute;left:0;right:0;top:0;height:38%;background:linear-gradient(180deg,rgba(255,255,255,.55),rgba(255,255,255,0));pointer-events:none}
+.bc.e00.t-tech::after{width:auto;right:0;left:0;bottom:auto;background:linear-gradient(180deg,rgba(255,255,255,.14),rgba(255,255,255,0))}
+.bc .bc-qr{position:absolute;right:1.2em;top:1.1em;width:3.3em;height:3.3em;border-radius:.15em}
+.bc.t-tech .bc-qr{top:auto;bottom:3.1em}
+.bc.t-block .bc-qr{top:1em}
+.bc.e20{border-radius:.9em}
+.bc.e20 .bc-dept,.bc.e20 .bc-en{display:none}
+.bc.e20 .bc-name{letter-spacing:.32em;font-weight:500}
+.bc.e20 .bc-contact{opacity:.6}
+.bc.e20.t-corp::before{width:.3em}
+
+/* 드문 변형 */
+.bc .bc-pen,.bc .bc-nick{font-family:var(--f-hand);color:#1d3fa8;font-weight:400}
+.bc .bc-pen{font-size:1.35em;transform:rotate(-3deg);display:inline-block}
+.bc .bc-title s{opacity:.55;text-decoration-thickness:.12em}
+.bc .bc-nick{position:absolute;right:1.4em;top:42%;font-size:1.5em;transform:rotate(-6deg)}
+.bc .bc-typo{color:inherit}
+.bc .bc-sticker{position:absolute;left:5.6em;bottom:3.1em;background:#fff6b8;color:#1b1f27;font-weight:700;font-size:1.3em;padding:0 .25em;transform:rotate(4deg);box-shadow:0 .05em .12em rgba(0,0,0,.25);font-family:var(--f-body)}
+.bc .bc-coffee{position:absolute;right:-1.2em;bottom:-1.4em;width:7em;height:7em;opacity:.55;pointer-events:none}
+.bc.v-abroad .bc-who{flex-direction:column-reverse}
+.bc.v-abroad .bc-en{font-size:1.25em;opacity:1;font-weight:600}
+.bc.v-abroad .bc-name{font-size:1.2em;letter-spacing:.1em;opacity:.7}
+
+/* 직군 신분증 */
+.t-badge{font-family:var(--f-body)}
+.t-badge .bd-name{font-size:2em;font-weight:700;letter-spacing:.12em;line-height:1.1}
+.t-badge .bd-role,.t-badge .bd-co{font-size:.85em;font-weight:600}
+.t-badge .bd-photo{position:absolute;width:4.6em;height:5.8em;background:#dfe7f3;color:#9fb0c8;border-radius:.3em;overflow:hidden;display:flex;align-items:flex-end}
+.t-badge .bd-photo svg{width:100%;height:auto}
+/* 게임: 목걸이 사원증 */
+.b-lanyard{background:#1a1f33;color:#eef1f8;border-radius:.8em}
+.b-lanyard .bd-strap{position:absolute;left:50%;top:-.2em;width:3.2em;height:1.5em;margin-left:-1.6em;background:var(--b);border-radius:0 0 .4em .4em}
+.b-lanyard .bd-hole{position:absolute;left:50%;top:2em;width:2.2em;height:.55em;margin-left:-1.1em;border-radius:1em;background:#0b0e18;box-shadow:inset 0 .1em .15em rgba(0,0,0,.6)}
+.b-lanyard .bd-photo{left:1.5em;top:3.6em}
+.b-lanyard .bd-who{position:absolute;left:7.2em;top:3.8em;display:flex;flex-direction:column;gap:.2em}
+.b-lanyard .bd-co{color:var(--b);filter:brightness(1.6)}
+.b-lanyard .bd-bar{position:absolute;left:7.2em;right:1.4em;bottom:1.3em;height:1.6em;background:repeating-linear-gradient(90deg,#eef1f8 0 .12em,transparent .12em .3em,#eef1f8 .3em .5em,transparent .5em .62em,#eef1f8 .62em .7em,transparent .7em 1em);opacity:.8}
+.b-lanyard .bd-staff{position:absolute;right:1.3em;top:3.6em;font-family:"IBM Plex Mono",monospace;font-weight:600;font-size:.8em;padding:.1em .5em;border:1px solid currentColor;border-radius:.3em}
+/* 의료: 가운 이름표 */
+.b-gown{background:#fff;border-radius:2.6em;box-shadow:inset 0 0 0 .25em #e6ecf5,0 .1em .2em rgba(0,0,0,.12),0 1.2em 1.6em -1em rgba(0,0,0,.4)}
+.b-gown .bd-top{position:absolute;left:0;right:0;top:0;height:3em;background:var(--b);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:.95em;letter-spacing:.1em}
+.b-gown .bd-who{position:absolute;left:0;right:0;top:4.2em;display:flex;flex-direction:column;align-items:center;gap:.25em}
+.b-gown .bd-name{font-size:2.5em}
+.b-gown .bd-role{color:var(--b)}
+.b-gown .bd-lic{font-size:.7em;opacity:.55}
+/* 건설: 현장 출입증 */
+.b-site{background:repeating-linear-gradient(-45deg,#ffd400 0 1em,#1b1f27 1em 2em);border-radius:.3em}
+.b-site .bd-in{position:absolute;inset:.9em;background:#fff;border-radius:.2em;padding:.8em 1.1em;display:flex;flex-direction:column;gap:.18em}
+.b-site .bd-big{font-family:var(--f-disp);font-size:1.6em;color:#d33a22;letter-spacing:.2em;line-height:1}
+.b-site .bd-name{font-size:1.9em}
+.b-site .bd-sos{font-size:.68em;opacity:.7}
+.b-site .bd-hat{position:absolute;right:1em;top:.8em;width:4em;height:4em;transform:rotate(10deg)}
+/* 요리: 앞치마 이름표 */
+.b-apron{background:#3f5a4c;background-image:repeating-linear-gradient(0deg,rgba(255,255,255,.05) 0 .12em,transparent .12em .3em),repeating-linear-gradient(90deg,rgba(0,0,0,.08) 0 .12em,transparent .12em .3em);color:#fff;border-radius:.5em}
+.b-apron .bd-patch{position:absolute;left:50%;top:50%;transform:translate(-50%,-55%) rotate(-2deg);background:#f5ecd8;color:#3b2a1a;padding:.7em 1.6em;border-radius:.3em;border:.15em dashed #b98a4a;display:flex;flex-direction:column;align-items:center;gap:.15em}
+.b-apron .bd-name{font-family:var(--f-hand);font-weight:400;font-size:2.6em;letter-spacing:.06em}
+.b-apron .bd-co{position:absolute;left:0;right:0;bottom:.9em;text-align:center;opacity:.8;letter-spacing:.2em}
+/* 학원: 강사 프로필 */
+.b-tutor{background:linear-gradient(110deg,#fff 58%,color-mix(in srgb,var(--b) 18%,#fff) 58%)}
+.b-tutor .bd-photo{left:1.4em;top:1.4em;width:5.6em;height:6.6em;border-radius:50% 50% .4em .4em}
+.b-tutor .bd-who{position:absolute;left:8em;top:1.5em;right:1.2em;display:flex;flex-direction:column;gap:.3em}
+.b-tutor .bd-co{color:var(--b)}
+.b-tutor .bd-name small{font-size:.45em;background:var(--b);color:#fff;padding:.05em .4em;border-radius:.2em;letter-spacing:0;vertical-align:.4em}
+.b-tutor .bd-quote{font-family:var(--f-hand);font-size:1.45em;color:#1d3fa8;line-height:1.1}
+/* 은행: 창구 명패 */
+.b-desk{background:linear-gradient(180deg,#6b4226,#3e2414);border-radius:.3em}
+.b-desk .bd-plate{position:absolute;inset:1.4em 1.6em;background:linear-gradient(160deg,#f3dc8c,#b8902f 45%,#f7e6a6 60%,#a8801f);border-radius:.25em;box-shadow:inset 0 0 0 .15em rgba(80,50,10,.4);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.25em;color:#3a2608}
+.b-desk .bd-name{font-family:"Gowun Batang",serif;font-size:2.5em;letter-spacing:.3em}
+/* 직급마다 회사 색 띠가 조금씩 굵어진다 */
+.t-corp.s1::before{width:.25em}.t-corp.s2::before{width:.4em}.t-corp.s3::before{width:.62em}
+.t-block.s1::before{height:30%}.t-block.s2::before{height:35%}.t-block.s3::before{height:42%}.t-block.s5::before{height:50%}
+.t-tech.s1::after{width:2em}.t-tech.s2::after{width:3em}
+.bc.s2 .bc-coen,.bc.s1 .bc-contact i{display:none}
+.t-classic.s1::before{opacity:.25}.t-classic.s2::before{opacity:.4}.t-classic.s4::before{inset:.45em;border-width:2px}
+.t-free:is(.e80,.e90,.e00) .bc-motto{bottom:5.8em}
+/* 도감: 시대 고리와 드문 변형 */
+.dex-dots i.on{background:linear-gradient(90deg,var(--pc) calc(var(--e,0)*20%),color-mix(in srgb,var(--pc) 32%,#fff) 0)}
+.dex-sum{display:flex;gap:10px;flex-wrap:wrap;margin:6px 0 4px}
+.dex-sum span{display:flex;align-items:baseline;gap:3px;background:var(--card);border:1px solid var(--rule);border-radius:8px;padding:6px 10px;font-size:12px;color:var(--muted)}
+.dex-sum b{font-family:var(--f-disp);font-weight:400;font-size:20px;color:var(--ink)}
+.dex-sum small{margin-left:6px;font-size:12px;color:var(--ink)}
+.rare-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.rare{font-size:12px;padding:2px 9px;border-radius:999px;border:1.5px dashed var(--rule);color:var(--muted)}
+.rare.on{border-style:solid;border-color:#1d3fa8;color:#1d3fa8;font-weight:600;background:#eef2ff}
+/* 사건 카드 그림 */
+.mcard .cat-art{position:absolute;right:16px;top:38px;width:64px;height:64px;opacity:.95;pointer-events:none}
+.mcard.has-art>h2{padding-right:74px;min-height:52px}
+@media (max-width:520px){ .mcard .cat-art{width:52px;height:52px;top:34px;right:12px} .mcard.has-art>h2{padding-right:58px;min-height:0} }
+/* 연표: 연도와 나이를 한 줄로 */
+.timeline li{grid-template-columns:auto 1fr}
+.timeline b{white-space:nowrap;min-width:44px}
+.timeline b small{margin-right:2px}
+/* 타운: 휴대폰에서는 길을 옆으로 넓힌다 */
+.town-stage{overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;scrollbar-width:thin}
+.town-wide{position:relative;height:var(--sh);min-width:100%;width:calc(var(--n)*88px)}
+.town-wide>svg.city{position:absolute;inset:0;width:100%;height:100%;display:block}
+.bld{width:calc(min(var(--sh)*.21,max(100vw/var(--n,6),88px)*1.05)*var(--k))}
+.town-hint{position:sticky;left:calc(100% - 150px);bottom:8px;display:inline-block;margin-top:calc(var(--sh) * -1 + 8px);font-size:12px;font-weight:600;color:#fff;background:rgba(22,33,59,.72);padding:3px 10px;border-radius:999px;pointer-events:none;z-index:5;animation:hintfade 6s ease forwards}
+@keyframes hintfade{0%,70%{opacity:1}100%{opacity:0}}
+/* 휴대폰 계획 책상: 이름은 크게, 설명은 한 줄 */
+@media (max-width:520px){
+  .pc b{font-size:16px}
+  .pc small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;display:block}
+}
+/* 수집첩 정점 도장판 */
+.sg-c{border-color:color-mix(in srgb,var(--pc) 50%,transparent);background:radial-gradient(circle,color-mix(in srgb,var(--pc) 9%,transparent) 58%,transparent 60%)}
+.sg-c.on{background:#fffdf7;border:2px solid #c8322b;color:#c8322b;box-shadow:inset 0 0 0 2px #fffdf7,inset 0 0 0 3.2px #c8322b;flex-direction:column;line-height:1;font-size:10px}
+.sg-c.on small{font-family:var(--f-body);font-size:8.5px;font-weight:600;margin-top:1px}
+/* 타이틀: 지난 인생의 명함 부채 */
+.title-fan{position:relative;display:block;width:240px;height:96px;margin:16px auto 0;pointer-events:auto}
+.fan-card{position:absolute;left:50%;top:6px;margin-left:-59px;transform:translateX(calc(var(--i)*58px)) rotate(calc(var(--i)*9deg));transform-origin:bottom center;transition:transform .25s ease}
+.title-fan:hover .fan-card{transform:translateX(calc(var(--i)*70px)) rotate(calc(var(--i)*12deg)) translateY(-4px)}
+.title-fan:focus-visible{outline:2px solid #ffe14d;outline-offset:6px;border-radius:8px}

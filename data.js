@@ -342,7 +342,7 @@ const CARDS=[
    {text:"깎인 월급으로 남는다",effects:{salaryPct:-20,life:4},result:"자리는 창가로 옮겨졌다."},
    {text:"명예퇴직하고 독립한다",hint:"위로금 2년 치 연봉, 프리랜서가 된다",effects:{do:"honor_retire"},result:"30년 만에 명함에서 회사 이름이 빠졌다."}]},
  {id:"relocate",when:{track:"career",stage:[2,4]},once:true,w:6,title:"발령",text:"3년, 아는 사람 없는 도시. 다녀오면 가점이 붙는다.",choices:[
-   {text:"간다",effects:{skill:4,net:-5,pp:3,life:-12,resume:"지방·해외 근무"},result:"돌아올 때는 캐리어가 세 개였다."},
+   {text:"간다",effects:{skill:4,net:-5,pp:3,life:-12,resume:"지방·해외 근무",flag:"abroad"},result:"돌아올 때는 캐리어가 세 개였다."},
    {text:"고사한다",effects:{rep:-3,pp:-1},result:"발령은 옆자리 동료가 받았다."}]},
  /* ---- 명성·장인 ---- */
  {id:"lecture",when:{track:WORKING,min:{fame:20}},cd:5,w:8,title:"강연 요청",text:"행사 담당자의 메일. \"연사로 모시고 싶습니다.\"",choices:[
